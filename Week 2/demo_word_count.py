@@ -1,3 +1,4 @@
+# Week 2, Demo 2: Word Count
 # demo_word_count.py
 import csv
 
@@ -27,6 +28,7 @@ print("-" * 75)
 
 word_counts = []
 
+# Iterate over each row in the responses list
 for row in responses:
     participant = row["participant_id"]
     role = row["role"]

@@ -1,0 +1,31 @@
+# HCDE 530 Project Rules
+
+## Scope
+- Apply these rules for all files in this repository.
+
+## Coding Style
+- Prefer clear, beginner-friendly code over clever patterns.
+- Keep functions small and single-purpose.
+- Use descriptive variable/function names.
+- Add brief comments only for non-obvious logic.
+
+## Python Conventions
+- Target Python 3.10+ syntax.
+- Follow PEP 8 defaults (spacing, naming, line length around 88).
+- Use `pathlib` for file paths when editing Python scripts.
+- Validate CSV headers before processing rows.
+- Handle file errors with clear messages (`FileNotFoundError`, parse errors).
+
+## Data Work (CSV / Analysis)
+- Do not modify source data files unless explicitly asked.
+- Preserve column names and row order by default.
+- When computing metrics, document assumptions in comments or README notes.
+
+## HTML Dashboards
+- Keep dashboards dependency-free unless user requests a library.
+- Make pages responsive and readable on laptop screens.
+- Separate structure, style, and script sections clearly.
+
+## Git Safety
+- Never commit secrets, tokens, keys, or credentials.
+- Ignore generated/system files (e.g., `.DS_Store`, `__pycache__`).
