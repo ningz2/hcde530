@@ -1,0 +1,332 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Week 2 CSV Dashboard</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --accent: #2563eb;
+      --accent-soft: #dbeafe;
+      --border: #e5e7eb;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      padding: 24px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+    .container {
+      max-width: 1100px;
+      margin: 0 auto;
+    }
+    h1 {
+      margin: 0 0 8px;
+      font-size: 1.7rem;
+    }
+    .subtitle {
+      margin: 0 0 20px;
+      color: var(--muted);
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+      margin-bottom: 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 14px;
+      box-shadow: 0 2px 6px rgba(15, 23, 42, 0.03);
+    }
+    .metric-label {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin-bottom: 6px;
+    }
+    .metric-value {
+      font-size: 1.5rem;
+      font-weight: 650;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 1.2fr 1fr;
+      gap: 12px;
+    }
+    @media (max-width: 860px) {
+      .layout { grid-template-columns: 1fr; }
+    }
+    .bars {
+      display: grid;
+      gap: 10px;
+      margin-top: 8px;
+    }
+    .bar-row {
+      display: grid;
+      grid-template-columns: 120px 1fr 40px;
+      gap: 8px;
+      align-items: center;
+      font-size: 0.93rem;
+    }
+    .bar-track {
+      width: 100%;
+      background: #eef2ff;
+      border-radius: 999px;
+      overflow: hidden;
+      height: 12px;
+    }
+    .bar-fill {
+      height: 12px;
+      background: linear-gradient(90deg, #3b82f6, #2563eb);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 8px;
+      font-size: 0.92rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 8px 6px;
+      border-bottom: 1px solid var(--border);
+    }
+    th { color: var(--muted); font-weight: 600; }
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--accent-soft);
+      color: #1e40af;
+      font-size: 0.8rem;
+      margin-right: 6px;
+      margin-bottom: 6px;
+    }
+    .small {
+      color: var(--muted);
+      font-size: 0.86rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Week 2 Response Dashboard</h1>
+    <p class="subtitle">Summary of participant responses from <code>demo_responses.csv</code></p>
+
+    <section class="grid" id="metrics"></section>
+
+    <section class="layout">
+      <div class="card">
+        <h3>Role Distribution</h3>
+        <div class="bars" id="roleBars"></div>
+      </div>
+
+      <div class="card">
+        <h3>Top Keywords</h3>
+        <div id="keywords"></div>
+        <p class="small">Common stop words are excluded.</p>
+      </div>
+    </section>
+
+    <section class="card" style="margin-top: 12px;">
+      <h3>Response Length by Participant</h3>
+      <table id="lengthTable">
+        <thead>
+          <tr>
+            <th>Participant</th>
+            <th>Role</th>
+            <th>Word Count</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </section>
+  </div>
+
+  <script>
+    const csvText = `participant_id,role,response
+P01,UX Researcher,"I usually start by reviewing whatever documentation exists, but honestly most of the time there isn't much. I end up doing a lot of stakeholder interviews just to figure out what the product is actually supposed to do."
+P02,UX Designer,"The hardest part is getting engineers to understand why we need more than two weeks for discovery. They always want to jump straight to wireframes. I've started framing research as risk reduction and that helps a little."
+P03,Product Manager,"We run two-week sprints and research keeps getting squeezed into the first three days. By the time we have findings, the design decisions are already made. I don't know how to fix that."
+P04,UX Researcher,"Recruiting is always the bottleneck. We spend more time finding participants than actually running sessions. I wish we had a panel we could pull from instead of starting from scratch every time."
+P05,Content Strategist,"Nobody invites me into the research phase. I find out what users said in the readout and by then the IA is already locked. The language problems surface in usability testing three months later."
+P06,UX Designer,"I've started doing five-minute hallway tests with anyone I can find. It's not rigorous but it's faster than waiting for a formal study to get scheduled and approved."
+P07,UX Researcher,"The synthesis step is where we lose people. Everyone attends the sessions but nobody wants to sit through two days of affinity mapping. I've tried doing it async with Miro but participation drops off."
+P08,Product Manager,"My biggest frustration is that research findings don't translate into decisions. We get a deck with quotes and themes and then everyone nods and goes back to doing what they planned to do anyway."
+P09,UX Designer,"I find it really hard to push back when someone senior says they already know what users want. Even when I have data that contradicts them."
+P10,UX Researcher,"Remote sessions have actually improved our geographic diversity. We used to only talk to people in Seattle. Now we regularly include participants from smaller cities and that's changed some of our assumptions."
+P11,Content Strategist,"I've been trying to introduce plain language principles but the legal team always pushes back. They want specific wording that users consistently misread in testing. It's a constant negotiation."
+P12,Product Manager,"We don't have a dedicated researcher on my team so I end up doing interviews myself. I'm not sure I'm doing them well but it's better than not doing them at all."
+P13,UX Designer,"The gap between what users say they do and what they actually do is real. I had a participant tell me they always read the confirmation email and then in the diary study we ran they never opened a single one."
+P14,UX Researcher,"I'm spending more time writing reports that nobody reads than actually doing research. I've been experimenting with shorter formats, like a one-page brief, and that gets more engagement."
+P15,Product Manager,"Our design system has made things more consistent but it's also made some teams less willing to question patterns that don't actually work for their users. Convention becomes a crutch."
+P16,UX Designer,"I've started including a confidence rating in my recommendations, like this is high confidence from multiple sources versus this is directional from a single session. It's changed how people receive the findings."
+P17,UX Researcher,"Accessibility keeps getting treated as a compliance checklist instead of a design constraint. I've had the most success when I can get an assistive technology user into a session early because seeing it is harder to argue with than reading about it."
+P18,Content Strategist,"Error messages are the last thing anyone thinks about and the first thing users notice when something goes wrong. I've been trying to get them into scope earlier but they always end up being a handoff item."
+P19,UX Designer,"I struggle with knowing when I have enough data. There's always pressure to do one more round but at some point you're validating what you already know."
+P20,Product Manager,"The most useful thing research has done for us is help us stop building things. We killed two features last quarter based on findings and that felt like a win even though it's hard to show in a metric."
+P21,UX Researcher,"We've been using AI to help with transcript analysis and it speeds things up but I always do a pass myself because it flattens nuance. It's good at finding patterns and bad at knowing which ones matter."
+P22,UX Designer,"Onboarding is where our product falls apart and everyone knows it but there's no owner. Product thinks it's design, design thinks it's content, content thinks it's engineering. The user just bounces."
+P23,Content Strategist,"I've been pushing for a terminology audit across the product for two years. Different parts of the app use different words for the same thing and users notice even if they can't articulate why."
+P24,UX Researcher,"The best sessions I run are the ones where I say almost nothing. The worst are when I'm trying to cover too many topics and I end up steering instead of listening."
+P25,Product Manager,"We did a diary study last year and the data was incredible but we've never had the budget or time to do another one. I think longitudinal research is undersold in product teams."`;
+
+    function parseCsv(text) {
+      const rows = [];
+      let current = "";
+      let inQuotes = false;
+      let row = [];
+
+      for (let i = 0; i < text.length; i++) {
+        const c = text[i];
+        const next = text[i + 1];
+
+        if (c === '"' && inQuotes && next === '"') {
+          current += '"';
+          i++;
+        } else if (c === '"') {
+          inQuotes = !inQuotes;
+        } else if (c === "," && !inQuotes) {
+          row.push(current);
+          current = "";
+        } else if ((c === "\n" || c === "\r") && !inQuotes) {
+          if (c === "\r" && next === "\n") i++;
+          if (current.length > 0 || row.length > 0) {
+            row.push(current);
+            rows.push(row);
+            row = [];
+            current = "";
+          }
+        } else {
+          current += c;
+        }
+      }
+
+      if (current.length > 0 || row.length > 0) {
+        row.push(current);
+        rows.push(row);
+      }
+
+      const headers = rows[0];
+      return rows.slice(1).map((r) => {
+        const obj = {};
+        headers.forEach((h, idx) => {
+          obj[h] = (r[idx] || "").trim();
+        });
+        return obj;
+      });
+    }
+
+    function wordCount(text) {
+      return text
+        .toLowerCase()
+        .replace(/[^a-z0-9\s']/g, " ")
+        .split(/\s+/)
+        .filter(Boolean).length;
+    }
+
+    function render() {
+      const data = parseCsv(csvText);
+      const total = data.length;
+      const roles = {};
+      let totalWords = 0;
+      let longest = { participant_id: "-", count: 0 };
+
+      data.forEach((d) => {
+        roles[d.role] = (roles[d.role] || 0) + 1;
+        const wc = wordCount(d.response);
+        d.word_count = wc;
+        totalWords += wc;
+        if (wc > longest.count) {
+          longest = { participant_id: d.participant_id, count: wc };
+        }
+      });
+
+      const avgWords = total ? Math.round(totalWords / total) : 0;
+      const uniqueRoles = Object.keys(roles).length;
+
+      const metrics = [
+        { label: "Total Responses", value: total },
+        { label: "Unique Roles", value: uniqueRoles },
+        { label: "Avg Words / Response", value: avgWords },
+        { label: "Longest Response", value: `${longest.participant_id} (${longest.count} words)` }
+      ];
+
+      const metricsEl = document.getElementById("metrics");
+      metricsEl.innerHTML = metrics.map((m) => `
+        <article class="card">
+          <div class="metric-label">${m.label}</div>
+          <div class="metric-value">${m.value}</div>
+        </article>
+      `).join("");
+
+      const maxRoleCount = Math.max(...Object.values(roles));
+      const roleBarsEl = document.getElementById("roleBars");
+      roleBarsEl.innerHTML = Object.entries(roles)
+        .sort((a, b) => b[1] - a[1])
+        .map(([role, count]) => {
+          const pct = Math.round((count / maxRoleCount) * 100);
+          return `
+            <div class="bar-row">
+              <div>${role}</div>
+              <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>
+              <div>${count}</div>
+            </div>`;
+        }).join("");
+
+      const stopWords = new Set([
+        "the", "and", "to", "of", "a", "is", "it", "in", "we", "i", "that",
+        "for", "on", "with", "but", "have", "they", "this", "my", "are",
+        "be", "as", "at", "our", "from", "do", "not", "what", "than", "when",
+        "by", "or", "an", "into", "more", "been", "their", "them", "you",
+        "just", "so", "all", "out", "up", "had", "get", "can", "it's", "ive",
+        "im", "dont", "thats"
+      ]);
+
+      const freq = {};
+      data.forEach((d) => {
+        d.response
+          .toLowerCase()
+          .replace(/[^a-z0-9\s']/g, " ")
+          .split(/\s+/)
+          .filter(Boolean)
+          .map((w) => w.replace(/^'+|'+$/g, ""))
+          .forEach((w) => {
+            if (!w || w.length < 3 || stopWords.has(w)) return;
+            freq[w] = (freq[w] || 0) + 1;
+          });
+      });
+
+      const topKeywords = Object.entries(freq)
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 15);
+      const keywordsEl = document.getElementById("keywords");
+      keywordsEl.innerHTML = topKeywords
+        .map(([w, c]) => `<span class="pill">${w} (${c})</span>`)
+        .join("");
+
+      const tbody = document.querySelector("#lengthTable tbody");
+      tbody.innerHTML = data
+        .slice()
+        .sort((a, b) => b.word_count - a.word_count)
+        .map((d) => `
+          <tr>
+            <td>${d.participant_id}</td>
+            <td>${d.role}</td>
+            <td>${d.word_count}</td>
+          </tr>
+        `)
+        .join("");
+    }
+
+    render();
+  </script>
+</body>
+</html>
