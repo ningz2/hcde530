@@ -59,6 +59,7 @@ with filename.open(newline="", encoding="utf-8") as f:
 # Normalize role names so "ux researcher" and "UX Researcher" are counted together
 role_counts = {}
 
+# Count responses by role
 for row in rows:
     role = row["role"].strip().title()
     if role in role_counts:
@@ -74,6 +75,7 @@ for role, count in sorted(role_counts.items()):
 # spelled-out numbers like "fifteen" are normalized first.)
 total_experience = 0
 experience_count = 0
+# Guarded parsing for experience_years
 for row in rows:
     row_id = row.get("response_id", row.get("participant_name", "unknown row"))
     years = parse_experience_years(row["experience_years"], row_id)
@@ -101,6 +103,7 @@ for row in rows:
 scored_rows.sort(key=lambda x: x[1])
 top5 = scored_rows[:5]
 
+# Sort satisfaction scores descending so the top five are highest scores
 print("\nTop 5 satisfaction scores:")
 for name, score in top5:
     print(f"  {name}: {score}")
