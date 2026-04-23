@@ -4,6 +4,7 @@ import csv
 filename = "week3_survey_messy.csv"
 rows = []
 
+# Read the CSV file
 with open(filename, newline="", encoding="utf-8") as f:
     reader = csv.DictReader(f)
     for row in reader:
