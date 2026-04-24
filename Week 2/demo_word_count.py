@@ -1,53 +1,53 @@
+#import csv from standard library
 import csv
-from pathlib import Path
 
-INPUT_CSV = Path(__file__).with_name("demo_responses.csv")
-MAX_RESPONSES = 50
+# Load the CSV file
+filename = "demo_responses.csv"
+responses = []
 
+with open(filename, newline="", encoding="utf-8") as f:
+    reader = csv.DictReader(f)
+    for row in reader:
+        responses.append(row)
 
-def count_words(text: str) -> int:
-    """Return number of words in a response string."""
-    return len(text.split())
+#define a function to count the number of words in a response
+def count_words(response):
+    """Count the number of words in a response string.
 
-
-def main() -> None:
-    word_counts: list[int] = []
-
-    with INPUT_CSV.open(newline="", encoding="utf-8") as file:
-        reader = csv.DictReader(file)
-        if "response" not in (reader.fieldnames or []):
-            raise ValueError("CSV must include a 'response' column.")
-
-        print(f"{'ID':<8}{'Words':<8}Response (first 60 chars)")
-        print("-" * 90)
-
-        for i, row in enumerate(reader, start=1):
-            if i > MAX_RESPONSES:
-                break
-
-            response = (row.get("response") or "").strip()
-            if not response:
-                print(f"Warning: skipped response #{i} (empty text).")
-                continue
-
-            row_id = (row.get("participant_id") or f"R{i:03d}").strip()
-            words = count_words(response)
-            word_counts.append(words)
-            preview = response[:60]
-            print(f"{row_id:<8}{words:<8}{preview}")
-
-    if not word_counts:
-        print("\nNo valid responses found.")
-        return
-
-    average = sum(word_counts) / len(word_counts)
-    print("\nSummary")
-    print("-" * 70)
-    print(f"Total responses processed: {len(word_counts)}")
-    print(f"Shortest response: {min(word_counts)} words")
-    print(f"Longest response: {max(word_counts)} words")
-    print(f"Average response length: {average:.1f} words")
+    Takes a string, splits it on whitespace, and returns the word count.
+    Used to measure response length across all participants.
+    """
+    return len(response.split())
 
 
-if __name__ == "__main__":
-    main()
+# Count words in each response and print a row-by-row summary
+print(f"{'ID':<6} {'Role':<22} {'Words':<6} {'Response (first 60 chars)'}")
+print("-" * 75)
+
+word_counts = []
+
+#loop through each row in the responses list
+for row in responses:
+    participant = row["participant_id"]
+    role = row["role"]
+    response = row["response"]
+
+    # Call our function to count words in this response
+    count = count_words(response)
+    word_counts.append(count)
+
+    # Truncate the response preview for display
+    if len(response) > 60:
+        preview = response[:60] + "..."
+    else:
+        preview = response
+
+    print(f"{participant:<6} {role:<22} {count:<6} {preview}")
+
+# Print summary statistics
+print()
+print("── Summary ─────────────────────────────────")
+print(f"  Total responses : {len(word_counts)}")
+print(f"  Shortest        : {min(word_counts)} words")
+print(f"  Longest         : {max(word_counts)} words")
+print(f"  Average         : {sum(word_counts) / len(word_counts):.1f} words")
