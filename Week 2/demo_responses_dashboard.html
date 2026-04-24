@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Demo responses — dashboard</title>
+  <style>
+    :root {
+      --bg: #faf7f2;
+      --surface: #ffffff;
+      --border: #e2ddd4;
+      --text: #1c1917;
+      --muted: #57534e;
+      --accent: #0d9488;
+      --accent-soft: #ccfbf1;
+      --role-uxr: #6366f1;
+      --role-uxd: #db2777;
+      --role-pm: #ca8a04;
+      --role-cs: #059669;
+      --radius: 12px;
+      --font: "Georgia", "Times New Roman", serif;
+      --font-ui: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: var(--font-ui);
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.55;
+      min-height: 100vh;
+    }
+    .wrap {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 2.5rem;
+    }
+    header {
+      margin-bottom: 1.5rem;
+      padding-bottom: 1rem;
+      border-bottom: 1px solid var(--border);
+    }
+    header h1 {
+      font-family: var(--font);
+      font-size: 1.65rem;
+      font-weight: 600;
+      margin: 0 0 0.4rem;
+      color: #0f172a;
+    }
+    header p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 0.95rem;
+    }
+    .kpis {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.75rem;
+      margin-bottom: 1.35rem;
+    }
+    .kpi {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1rem 1.1rem;
+    }
+    .kpi .label {
+      font-size: 0.7rem;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 0.2rem;
+    }
+    .kpi .value {
+      font-size: 1.4rem;
+      font-weight: 700;
+      color: #0f172a;
+    }
+    .panel {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 1.1rem 1.2rem;
+      margin-bottom: 1rem;
+    }
+    .panel h2 {
+      margin: 0 0 0.85rem;
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+    .bars { display: flex; flex-direction: column; gap: 0.5rem; }
+    .bar-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 2.25rem;
+      gap: 0.45rem;
+      align-items: center;
+      font-size: 0.85rem;
+    }
+    .bar-row .name {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .bar-track {
+      grid-column: 1 / -1;
+      height: 9px;
+      background: var(--bg);
+      border-radius: 5px;
+      overflow: hidden;
+    }
+    .bar-fill {
+      height: 100%;
+      border-radius: 5px;
+      background: linear-gradient(90deg, var(--accent), #14b8a6);
+      min-width: 3px;
+    }
+    .bar-row .count {
+      text-align: right;
+      color: var(--muted);
+      font-variant-numeric: tabular-nums;
+      font-size: 0.8rem;
+    }
+    .grid-2 {
+      display: grid;
+      gap: 1rem;
+      margin-bottom: 1rem;
+    }
+    @media (min-width: 720px) {
+      .grid-2 { grid-template-columns: 1fr 1fr; }
+    }
+    .filters {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.65rem;
+      margin-bottom: 0.9rem;
+      align-items: flex-end;
+    }
+    .filters label {
+      display: flex;
+      flex-direction: column;
+      gap: 0.2rem;
+      font-size: 0.75rem;
+      color: var(--muted);
+    }
+    input, select {
+      font: inherit;
+      padding: 0.45rem 0.55rem;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: #fff;
+      color: var(--text);
+    }
+    input[type="search"] { min-width: min(100%, 200px); flex: 1; }
+    .table-wrap {
+      overflow-x: auto;
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      background: var(--surface);
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.84rem;
+    }
+    th, td {
+      padding: 0.6rem 0.7rem;
+      text-align: left;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    th {
+      background: #f5f2eb;
+      color: var(--muted);
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    tr:last-child td { border-bottom: none; }
+    td.response {
+      font-family: var(--font);
+      color: #292524;
+      min-width: 12rem;
+      max-width: 36rem;
+      word-wrap: break-word;
+    }
+    .pill {
+      display: inline-block;
+      padding: 0.15rem 0.5rem;
+      border-radius: 999px;
+      font-size: 0.72rem;
+      font-weight: 600;
+      white-space: nowrap;
+    }
+    .role-ux-researcher { background: #e0e7ff; color: #3730a3; }
+    .role-ux-designer { background: #fce7f3; color: #9d174d; }
+    .role-product-manager { background: #fef9c3; color: #854d0e; }
+    .role-content-strategist { background: #d1fae5; color: #065f46; }
+    .role-default { background: #f1f5f9; color: #334155; }
+    .footnote {
+      margin-top: 1rem;
+      font-size: 0.78rem;
+      color: var(--muted);
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Demo responses</h1>
+      <p>Open-ended answers from <code>demo_responses.csv</code> (25 participants).</p>
+    </header>
+
+    <section class="kpis" id="kpis" aria-live="polite"></section>
+
+    <div class="grid-2">
+      <div class="panel">
+        <h2>Responses by role</h2>
+        <div class="bars" id="bars-role"></div>
+      </div>
+      <div class="panel">
+        <h2>Response length (words)</h2>
+        <p id="length-summary" style="margin:0 0 0.75rem;font-size:0.85rem;color:var(--muted);"></p>
+        <div class="bars" id="bars-length"></div>
+      </div>
+    </div>
+
+    <section class="panel">
+      <h2 style="margin-bottom:0.75rem;">Browse responses</h2>
+      <div class="filters">
+        <label style="flex:1;min-width:160px;">Search text
+          <input type="search" id="q" placeholder="Search in responses…" autocomplete="off" />
+        </label>
+        <label>Role
+          <select id="f-role"><option value="">All roles</option></select>
+        </label>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>ID</th>
+              <th>Role</th>
+              <th>Words</th>
+              <th>Response</th>
+            </tr>
+          </thead>
+          <tbody id="tbody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <p class="footnote">Data is embedded as <code>ROWS</code> for offline viewing. Regenerate this file after editing <code>demo_responses.csv</code> so the dashboard stays in sync.</p>
+  </div>
+
+  <script>
+    const ROWS = [{"participant_id": "P01", "role": "UX Researcher", "response": "I usually start by reviewing whatever documentation exists, but honestly most of the time there isn't much. I end up doing a lot of stakeholder interviews just to figure out what the product is actually supposed to do.", "word_count": 38, "char_count": 218}, {"participant_id": "P02", "role": "UX Designer", "response": "The hardest part is getting engineers to understand why we need more than two weeks for discovery. They always want to jump straight to wireframes. I've started framing research as risk reduction and that helps a little.", "word_count": 37, "char_count": 220}, {"participant_id": "P03", "role": "Product Manager", "response": "We run two-week sprints and research keeps getting squeezed into the first three days. By the time we have findings, the design decisions are already made. I don't know how to fix that.", "word_count": 33, "char_count": 185}, {"participant_id": "P04", "role": "UX Researcher", "response": "Recruiting is always the bottleneck. We spend more time finding participants than actually running sessions. I wish we had a panel we could pull from instead of starting from scratch every time.", "word_count": 32, "char_count": 194}, {"participant_id": "P05", "role": "Content Strategist", "response": "Nobody invites me into the research phase. I find out what users said in the readout and by then the IA is already locked. The language problems surface in usability testing three months later.", "word_count": 34, "char_count": 193}, {"participant_id": "P06", "role": "UX Designer", "response": "I've started doing five-minute hallway tests with anyone I can find. It's not rigorous but it's faster than waiting for a formal study to get scheduled and approved.", "word_count": 28, "char_count": 165}, {"participant_id": "P07", "role": "UX Researcher", "response": "The synthesis step is where we lose people. Everyone attends the sessions but nobody wants to sit through two days of affinity mapping. I've tried doing it async with Miro but participation drops off.", "word_count": 34, "char_count": 200}, {"participant_id": "P08", "role": "Product Manager", "response": "My biggest frustration is that research findings don't translate into decisions. We get a deck with quotes and themes and then everyone nods and goes back to doing what they planned to do anyway.", "word_count": 34, "char_count": 195}, {"participant_id": "P09", "role": "UX Designer", "response": "I find it really hard to push back when someone senior says they already know what users want. Even when I have data that contradicts them.", "word_count": 26, "char_count": 139}, {"participant_id": "P10", "role": "UX Researcher", "response": "Remote sessions have actually improved our geographic diversity. We used to only talk to people in Seattle. Now we regularly include participants from smaller cities and that's changed some of our assumptions.", "word_count": 32, "char_count": 209}, {"participant_id": "P11", "role": "Content Strategist", "response": "I've been trying to introduce plain language principles but the legal team always pushes back. They want specific wording that users consistently misread in testing. It's a constant negotiation.", "word_count": 29, "char_count": 194}, {"participant_id": "P12", "role": "Product Manager", "response": "We don't have a dedicated researcher on my team so I end up doing interviews myself. I'm not sure I'm doing them well but it's better than not doing them at all.", "word_count": 32, "char_count": 161}, {"participant_id": "P13", "role": "UX Designer", "response": "The gap between what users say they do and what they actually do is real. I had a participant tell me they always read the confirmation email and then in the diary study we ran they never opened a single one.", "word_count": 41, "char_count": 208}, {"participant_id": "P14", "role": "UX Researcher", "response": "I'm spending more time writing reports that nobody reads than actually doing research. I've been experimenting with shorter formats, like a one-page brief, and that gets more engagement.", "word_count": 28, "char_count": 186}, {"participant_id": "P15", "role": "Product Manager", "response": "Our design system has made things more consistent but it's also made some teams less willing to question patterns that don't actually work for their users. Convention becomes a crutch.", "word_count": 30, "char_count": 184}, {"participant_id": "P16", "role": "UX Designer", "response": "I've started including a confidence rating in my recommendations, like this is high confidence from multiple sources versus this is directional from a single session. It's changed how people receive the findings.", "word_count": 32, "char_count": 212}, {"participant_id": "P17", "role": "UX Researcher", "response": "Accessibility keeps getting treated as a compliance checklist instead of a design constraint. I've had the most success when I can get an assistive technology user into a session early because seeing it is harder to argue with than reading about it.", "word_count": 42, "char_count": 249}, {"participant_id": "P18", "role": "Content Strategist", "response": "Error messages are the last thing anyone thinks about and the first thing users notice when something goes wrong. I've been trying to get them into scope earlier but they always end up being a handoff item.", "word_count": 37, "char_count": 206}, {"participant_id": "P19", "role": "UX Designer", "response": "I struggle with knowing when I have enough data. There's always pressure to do one more round but at some point you're validating what you already know.", "word_count": 27, "char_count": 152}, {"participant_id": "P20", "role": "Product Manager", "response": "The most useful thing research has done for us is help us stop building things. We killed two features last quarter based on findings and that felt like a win even though it's hard to show in a metric.", "word_count": 39, "char_count": 201}, {"participant_id": "P21", "role": "UX Researcher", "response": "We've been using AI to help with transcript analysis and it speeds things up but I always do a pass myself because it flattens nuance. It's good at finding patterns and bad at knowing which ones matter.", "word_count": 37, "char_count": 202}, {"participant_id": "P22", "role": "UX Designer", "response": "Onboarding is where our product falls apart and everyone knows it but there's no owner. Product thinks it's design, design thinks it's content, content thinks it's engineering. The user just bounces.", "word_count": 31, "char_count": 199}, {"participant_id": "P23", "role": "Content Strategist", "response": "I've been pushing for a terminology audit across the product for two years. Different parts of the app use different words for the same thing and users notice even if they can't articulate why.", "word_count": 34, "char_count": 193}, {"participant_id": "P24", "role": "UX Researcher", "response": "The best sessions I run are the ones where I say almost nothing. The worst are when I'm trying to cover too many topics and I end up steering instead of listening.", "word_count": 32, "char_count": 163}, {"participant_id": "P25", "role": "Product Manager", "response": "We did a diary study last year and the data was incredible but we've never had the budget or time to do another one. I think longitudinal research is undersold in product teams.", "word_count": 33, "char_count": 177}];
+
+    function countBy(rows, key) {
+      const m = new Map();
+      for (const r of rows) {
+        const v = r[key];
+        m.set(v, (m.get(v) || 0) + 1);
+      }
+      return [...m.entries()].sort((a, b) => b[1] - a[1]);
+    }
+
+    function renderBars(containerId, pairs) {
+      const el = document.getElementById(containerId);
+      el.innerHTML = "";
+      const max = Math.max(...pairs.map((p) => p[1]), 1);
+      for (const [name, val] of pairs) {
+        const pct = (val / max) * 100;
+        const row = document.createElement("div");
+        row.className = "bar-row";
+        row.innerHTML = `
+          <span class="name" title="${String(name).replace(/"/g, "&quot;")}">${String(name)}</span>
+          <span class="count">${val}</span>
+          <div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>`;
+        el.appendChild(row);
+      }
+    }
+
+    function uniqueSorted(rows, key) {
+      return [...new Set(rows.map((r) => r[key]))].sort();
+    }
+
+    function fillSelect(sel, values) {
+      for (const v of values) {
+        const o = document.createElement("option");
+        o.value = v;
+        o.textContent = v;
+        sel.appendChild(o);
+      }
+    }
+
+    function roleClass(role) {
+      const map = {
+        "UX Researcher": "pill role-ux-researcher",
+        "UX Designer": "pill role-ux-designer",
+        "Product Manager": "pill role-product-manager",
+        "Content Strategist": "pill role-content-strategist",
+      };
+      return map[role] || "pill role-default";
+    }
+
+    function lengthBuckets(rows) {
+      const edges = [0, 40, 60, 80, 100, 140];
+      const labels = [
+        "1–40 words",
+        "41–60",
+        "61–80",
+        "81–100",
+        "101+",
+      ];
+      const counts = [0, 0, 0, 0, 0];
+      for (const r of rows) {
+        const w = r.word_count;
+        if (w <= 40) counts[0]++;
+        else if (w <= 60) counts[1]++;
+        else if (w <= 80) counts[2]++;
+        else if (w <= 100) counts[3]++;
+        else counts[4]++;
+      }
+      return labels.map((lab, i) => [lab, counts[i]]);
+    }
+
+    function renderKpis(rows) {
+      const n = rows.length;
+      const roles = new Set(rows.map((r) => r.role)).size;
+      const avgWords = n
+        ? rows.reduce((s, r) => s + r.word_count, 0) / n
+        : 0;
+      const avgChars = n
+        ? rows.reduce((s, r) => s + r.char_count, 0) / n
+        : 0;
+      document.getElementById("kpis").innerHTML = `
+        <div class="kpi"><div class="label">Responses</div><div class="value">${n}</div></div>
+        <div class="kpi"><div class="label">Distinct roles</div><div class="value">${roles}</div></div>
+        <div class="kpi"><div class="label">Avg words</div><div class="value">${avgWords.toFixed(0)}</div></div>
+        <div class="kpi"><div class="label">Avg characters</div><div class="value">${avgChars.toFixed(0)}</div></div>`;
+
+      const lens = rows.map((r) => r.word_count);
+      const minW = n ? Math.min(...lens) : 0;
+      const maxW = n ? Math.max(...lens) : 0;
+      document.getElementById("length-summary").textContent =
+        n === 0
+          ? "No rows match the current filters."
+          : `Shortest response: ${minW} words · Longest: ${maxW} words`;
+    }
+
+    function rowMatches(r, q, role) {
+      if (role && r.role !== role) return false;
+      if (q) {
+        const hay = (r.response + " " + r.role + " " + r.participant_id).toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      return true;
+    }
+
+    function renderTable(rows) {
+      const tb = document.getElementById("tbody");
+      tb.innerHTML = "";
+      const esc = (s) => {
+        const d = document.createElement("div");
+        d.textContent = s;
+        return d.innerHTML;
+      };
+      for (const r of rows) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${esc(r.participant_id)}</td>
+          <td><span class="${roleClass(r.role)}">${esc(r.role)}</span></td>
+          <td>${r.word_count}</td>
+          <td class="response">${esc(r.response)}</td>`;
+        tb.appendChild(tr);
+      }
+    }
+
+    function applyFilters() {
+      const q = document.getElementById("q").value.trim().toLowerCase();
+      const role = document.getElementById("f-role").value;
+      const filtered = ROWS.filter((r) => rowMatches(r, q, role));
+      renderKpis(filtered);
+      renderBars("bars-role", countBy(filtered, "role"));
+      renderBars("bars-length", lengthBuckets(filtered));
+      renderTable(filtered);
+    }
+
+    fillSelect(document.getElementById("f-role"), uniqueSorted(ROWS, "role"));
+    document.getElementById("q").addEventListener("input", applyFilters);
+    document.getElementById("f-role").addEventListener("change", applyFilters);
+
+    applyFilters();
+  </script>
+</body>
+</html>
