@@ -18,7 +18,9 @@ Week 2/
 ├── demo_responses.csv
 ├── demo_responses_dashboard.html
 ├── demo_word_count.py
-└── sync_cursorrules_tree.py
+├── PROJECT_CONTEXT.md
+├── sync_cursorrules_tree.py
+└── week2.md
 <!-- DIRECTORY_TREE_END -->
 
 ## Coding Style
