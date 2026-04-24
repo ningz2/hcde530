@@ -1,0 +1,69 @@
+# HCDE 530 Project Rules
+
+## Scope
+- This file lives in `Week 2/`. Apply these rules when editing files in this folder. (Cursor usually reads `.cursorrules` from the **workspace root**; if agents ignore this file, open the HCDE 530 repo as the workspace root or add a short root `.cursorrules` that defers to Week 2.)
+
+## Directory structure
+
+- **Refresh:** after you add, remove, or rename anything under `Week 2/`, run `python sync_cursorrules_tree.py` from this folder so the tree and date below stay accurate.
+- **Agents:** run that script in the same edit as any layout change, or update the marked block manually.
+
+<!-- DIRECTORY_TREE_BEGIN -->
+Last layout sync: 2026-04-24 (UTC)
+
+Week 2/
+├── .cursorrules
+├── .gitignore
+├── CURSOR.code-workspace
+├── demo_responses.csv
+├── demo_responses_dashboard.html
+├── demo_word_count.py
+└── sync_cursorrules_tree.py
+<!-- DIRECTORY_TREE_END -->
+
+## Coding Style
+- Prefer clear, beginner-friendly code over clever patterns.
+- Keep functions small and single-purpose.
+- Use descriptive variable/function names.
+- Add brief comments only for non-obvious logic.
+
+## Python Conventions
+- Target Python 3.10+ syntax.
+- Follow PEP 8 defaults (spacing, naming, line length around 88).
+- Use `pathlib` for file paths when editing Python scripts.
+- Validate CSV headers before processing rows.
+- Handle file errors with clear messages (`FileNotFoundError`, parse errors).
+
+## Data Work (CSV / Analysis)
+- Do not modify source data files unless explicitly asked.
+- Preserve column names and row order by default.
+- When computing metrics, document assumptions in comments or README notes.
+
+## HTML Dashboards
+- Keep dashboards dependency-free unless user requests a library.
+- Make pages responsive and readable on laptop screens.
+- Separate structure, style, and script sections clearly.
+- When data is embedded as JSON for offline (`file://`) use, refresh that payload after the CSV changes.
+- After editing dashboard scripts, verify balanced parentheses/brackets; a syntax error prevents any charts or tables from rendering.
+- For long text in tables, use wrapping and reasonable width constraints—do not use `max-width: 1px` on body cells.
+
+## Demo files in this folder
+
+Patterns from the Week 2 demo work; extend these files in the same spirit.
+
+### `demo_responses.csv`
+- Expected headers: `participant_id`, `role`, `response` (quoted fields allowed).
+- Treat as read-only source unless the user or assignment explicitly asks to edit it.
+
+### Python (e.g. `demo_word_count.py`)
+- Read with `csv.DictReader`; assert or check headers before processing rows.
+- **Word count** for a response: whitespace-split count on the response string (same idea as the dashboard `word_count` field).
+- Prefer resolving the CSV with `pathlib.Path(__file__).resolve().parent / "demo_responses.csv"` so scripts work no matter which directory you run them from.
+
+### HTML (e.g. `demo_responses_dashboard.html`)
+- Single-file dashboard next to the CSV; structure / style / script kept distinct.
+- KPIs plus simple CSS bar summaries and a filterable table match this week’s scope.
+
+## Git Safety
+- Never commit secrets, tokens, keys, or credentials.
+- Ignore generated/system files (e.g., `.DS_Store`, `__pycache__`).
