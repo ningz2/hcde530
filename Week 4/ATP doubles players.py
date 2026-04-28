@@ -20,12 +20,13 @@ import urllib.request
 from pathlib import Path
 from typing import Any
 
+#import dotenv from standard library
 try:
     from dotenv import load_dotenv  # type: ignore[import-untyped]
 except ImportError:
     load_dotenv = None
 
-
+#define the API host and default URL
 API_HOST = "tennis-api-atp-wta-itf.p.rapidapi.com"
 DEFAULT_ATP_DOUBLES_RANKINGS_URL = (
     "https://tennis-api-atp-wta-itf.p.rapidapi.com/tennis/v2/atp/ranking/doubles"
@@ -33,7 +34,7 @@ DEFAULT_ATP_DOUBLES_RANKINGS_URL = (
 OUTPUT_CSV = Path(__file__).resolve().parent / "ATP Double Top60.csv"
 TOP_N = 60
 
-
+#define a function to load the environment variables
 def _load_environment() -> str:
     env_path = Path(__file__).resolve().parent / ".env"
     if load_dotenv is not None:
@@ -51,7 +52,7 @@ def _load_environment() -> str:
         raise RuntimeError("Missing API key. Add YOUR_KEY_NAME to Week 4/.env, then run again.")
     return api_key
 
-
+#define a function to create an SSL context
 def _ssl_context() -> ssl.SSLContext:
     try:
         import certifi  # type: ignore[import-untyped]
@@ -60,7 +61,7 @@ def _ssl_context() -> ssl.SSLContext:
     except ImportError:
         return ssl.create_default_context()
 
-
+#define a function to fetch JSON data from an endpoint
 def fetch_json(api_key: str, endpoint: str) -> dict[str, Any]:
     req = urllib.request.Request(
         endpoint,
@@ -94,7 +95,7 @@ def fetch_json(api_key: str, endpoint: str) -> dict[str, Any]:
     except json.JSONDecodeError as err:
         raise RuntimeError("API response is not valid JSON.") from err
 
-
+#define a function to fetch the list of ATP player titles
 def fetch_atp_player_titles_list(api_key: str, player_id: int) -> str:
     endpoint = (
         "https://tennis-api-atp-wta-itf.p.rapidapi.com"
@@ -116,7 +117,7 @@ def fetch_atp_player_titles_list(api_key: str, player_id: int) -> str:
         chunks.append(f"{tour}:{won}")
     return " | ".join(chunks) if chunks else "NA"
 
-
+#define a function to normalize the rankings data
 def normalize_rankings(data: dict[str, Any], limit: int) -> list[dict[str, Any]]:
     rows = data.get("data", [])
     if not isinstance(rows, list):
@@ -147,7 +148,7 @@ def normalize_rankings(data: dict[str, Any], limit: int) -> list[dict[str, Any]]
 
     return players
 
-
+#define a function to write the data to a CSV file
 def write_csv(rows: list[dict[str, Any]]) -> None:
     OUTPUT_CSV.parent.mkdir(parents=True, exist_ok=True)
     with OUTPUT_CSV.open("w", newline="", encoding="utf-8") as file:
@@ -158,7 +159,7 @@ def write_csv(rows: list[dict[str, Any]]) -> None:
         writer.writeheader()
         writer.writerows(rows)
 
-
+#define the main function
 def main() -> None:
     api_key = _load_environment()
     rankings_url = os.environ.get("ATP_DOUBLES_RANKINGS_URL", DEFAULT_ATP_DOUBLES_RANKINGS_URL)
