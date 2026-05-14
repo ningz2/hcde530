@@ -1,0 +1,10 @@
+.env
+yellowstone.env
+__pycache__/
+*.py[cod]
+.DS_Store
+.ipynb_checkpoints/
+
+# Generated downloads (keep directory with .gitkeep only)
+data/raw/*
+!data/raw/.gitkeep
