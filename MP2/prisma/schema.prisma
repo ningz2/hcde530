@@ -1,0 +1,353 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum WorkspaceRole {
+  OWNER
+  EDITOR
+  VIEWER
+}
+
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  REMOVED
+}
+
+enum ShareLinkScope {
+  WORKSPACE_VIEW
+  BOARD_VIEW
+}
+
+enum ShareLinkStatus {
+  ACTIVE
+  REVOKED
+  EXPIRED
+}
+
+enum UploadInputType {
+  CSV
+  TXT
+  DOC
+  DOCX
+  PASTED_TEXT
+}
+
+enum UploadStatus {
+  RECEIVED
+  EXTRACTED
+  ANONYMIZED
+  FAILED
+}
+
+enum AnonymizationState {
+  PENDING_CONSENT
+  APPLIED
+  SKIPPED
+}
+
+enum GroupingDirection {
+  BOTTOM_UP
+  TOP_DOWN
+}
+
+enum StrategyTone {
+  BALANCED
+}
+
+enum JobStatus {
+  QUEUED
+  RUNNING
+  SUCCEEDED
+  FAILED
+}
+
+enum ExportFormat {
+  CSV
+  PDF
+  FIGJAM
+}
+
+enum SnapshotEntityType {
+  QUOTE
+  THEME
+  BOARD
+}
+
+enum SnapshotAction {
+  CREATE
+  UPDATE
+  DELETE
+  RESTORE
+  MOVE
+}
+
+enum QuoteState {
+  ACTIVE
+  SOFT_DELETED
+}
+
+enum ThemeState {
+  ACTIVE
+  SOFT_DELETED
+}
+
+model User {
+  id                 String                @id @default(cuid())
+  authUserId         String                @unique
+  email              String                @unique
+  displayName        String?
+  createdAt          DateTime              @default(now())
+  updatedAt          DateTime              @updatedAt
+  memberships        WorkspaceMembership[]
+  createdLinks       ShareLink[]
+  activityLogs       ActivityLog[]
+  sessions           UserSession[]
+  snapshots          SessionSnapshot[]
+  ingestionUploads   IngestionUpload[]
+  groupingStrategies GroupingStrategy[]
+  exportJobs         ExportJob[]
+}
+
+model Workspace {
+  id                    String                @id @default(cuid())
+  name                  String
+  researchQuestion      String?
+  projectGoal           String?
+  projectContext        String?
+  defaultHierarchyDepth Int                   @default(2)
+  groupingDirection     GroupingDirection     @default(BOTTOM_UP)
+  createdAt             DateTime              @default(now())
+  updatedAt             DateTime              @updatedAt
+  memberships           WorkspaceMembership[]
+  uploads               IngestionUpload[]
+  strategies            GroupingStrategy[]
+  boards                AffinityBoard[]
+  shareLinks            ShareLink[]
+  activityLogs          ActivityLog[]
+  participants          Participant[]
+  quotes                Quote[]
+  exportJobs            ExportJob[]
+  userSessions          UserSession[]
+  sessionSnapshots      SessionSnapshot[]
+}
+
+model WorkspaceMembership {
+  id           String           @id @default(cuid())
+  workspaceId  String
+  userId       String
+  role         WorkspaceRole
+  status       MembershipStatus @default(ACTIVE)
+  invitedById  String?
+  invitedEmail String?
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @updatedAt
+  workspace    Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([workspaceId, userId])
+}
+
+model ShareLink {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  boardId         String?
+  createdByUserId String?
+  tokenHash       String          @unique
+  scope           ShareLinkScope  @default(WORKSPACE_VIEW)
+  status          ShareLinkStatus @default(ACTIVE)
+  expiresAt       DateTime?
+  allowExport     Boolean         @default(true)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  workspace       Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  board           AffinityBoard?  @relation(fields: [boardId], references: [id], onDelete: SetNull)
+  createdBy       User?           @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+}
+
+model IngestionUpload {
+  id                  String             @id @default(cuid())
+  workspaceId         String
+  submittedByUserId   String?
+  sourceType          UploadInputType
+  originalFilename    String?
+  sourceSizeBytes     Int?
+  extractionSummary   String?
+  rawRetained         Boolean            @default(false)
+  anonymizationState  AnonymizationState @default(PENDING_CONSENT)
+  anonymizationOptOut Boolean            @default(false)
+  status              UploadStatus       @default(RECEIVED)
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+  workspace           Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  submittedBy         User?              @relation(fields: [submittedByUserId], references: [id], onDelete: SetNull)
+  quotes              Quote[]
+}
+
+model Participant {
+  id               String    @id @default(cuid())
+  workspaceId      String
+  sourceLabel      String
+  anonymizedLabel  String
+  stableColorToken String
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+  workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  quotes           Quote[]
+
+  @@unique([workspaceId, sourceLabel])
+  @@unique([workspaceId, anonymizedLabel])
+}
+
+model Quote {
+  id               String            @id @default(cuid())
+  workspaceId      String
+  uploadId         String
+  participantId    String?
+  content          String
+  sourceRef        String?
+  participantCount Int               @default(1)
+  mentionDensity   Float             @default(1.0)
+  state            QuoteState        @default(ACTIVE)
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  workspace        Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  upload           IngestionUpload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  participant      Participant?      @relation(fields: [participantId], references: [id], onDelete: SetNull)
+  assignments      QuoteAssignment[]
+}
+
+model GroupingStrategy {
+  id              String            @id @default(cuid())
+  workspaceId     String
+  createdByUserId String?
+  direction       GroupingDirection
+  hierarchyDepth  Int               @default(2)
+  tone            StrategyTone      @default(BALANCED)
+  strategyPrompt  String
+  strategySummary String
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+  workspace       Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdBy       User?             @relation(fields: [createdByUserId], references: [id], onDelete: SetNull)
+  boards          AffinityBoard[]
+}
+
+model AffinityBoard {
+  id             String            @id @default(cuid())
+  workspaceId    String
+  strategyId     String?
+  name           String
+  hierarchyDepth Int
+  status         JobStatus         @default(QUEUED)
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  strategy       GroupingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
+  themes         Theme[]
+  exports        ExportJob[]
+  shareLinks     ShareLink[]
+}
+
+model Theme {
+  id               String            @id @default(cuid())
+  boardId          String
+  parentThemeId    String?
+  level            Int
+  title            String
+  description      String?
+  participantCount Int               @default(0)
+  mentionDensity   Float             @default(0)
+  aiGenerated      Boolean           @default(true)
+  isUserEdited     Boolean           @default(false)
+  state            ThemeState        @default(ACTIVE)
+  deletedAt        DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  board            AffinityBoard     @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  parentTheme      Theme?            @relation("ThemeHierarchy", fields: [parentThemeId], references: [id], onDelete: SetNull)
+  childThemes      Theme[]           @relation("ThemeHierarchy")
+  assignments      QuoteAssignment[]
+
+  @@index([boardId, level])
+}
+
+model QuoteAssignment {
+  id        String   @id @default(cuid())
+  quoteId   String
+  themeId   String
+  rationale String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  quote     Quote    @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  theme     Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, themeId])
+}
+
+model ExportJob {
+  id            String        @id @default(cuid())
+  workspaceId   String
+  boardId       String
+  requestedById String?
+  format        ExportFormat
+  status        JobStatus     @default(QUEUED)
+  artifactUrl   String?
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  board         AffinityBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
+  requestedBy   User?         @relation(fields: [requestedById], references: [id], onDelete: SetNull)
+}
+
+model UserSession {
+  id           String            @id @default(cuid())
+  workspaceId  String
+  userId       String
+  startedAt    DateTime          @default(now())
+  lastActiveAt DateTime          @default(now())
+  workspace    Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  snapshots    SessionSnapshot[]
+
+  @@index([workspaceId, userId])
+}
+
+model SessionSnapshot {
+  id            String             @id @default(cuid())
+  workspaceId   String
+  userSessionId String
+  userId        String
+  entityType    SnapshotEntityType
+  entityId      String
+  action        SnapshotAction
+  payload       Json
+  createdAt     DateTime           @default(now())
+  workspace     Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  userSession   UserSession        @relation(fields: [userSessionId], references: [id], onDelete: Cascade)
+  user          User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, createdAt])
+}
+
+model ActivityLog {
+  id          String         @id @default(cuid())
+  workspaceId String
+  actorUserId String?
+  actorRole   WorkspaceRole?
+  action      String
+  targetType  String
+  targetId    String?
+  metadata    Json?
+  createdAt   DateTime       @default(now())
+  workspace   Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  actor       User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, createdAt])
+}

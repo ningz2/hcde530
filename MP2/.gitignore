@@ -8,3 +8,5 @@ build
 prisma/migrations
 coverage
 .DS_Store
+*.tsbuildinfo
+.config

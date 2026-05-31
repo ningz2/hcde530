@@ -84,3 +84,11 @@ Assumptions introduced during Phase 1 frame scaffolding
 - Anonymous view-only share links are currently blocked from triggering exports in the scaffold. The rules allow exports for all named roles (owner/editor/viewer); whether anonymous link holders may export anonymized output is an open product decision to confirm.
 - Default theme hierarchy depth is 2 and grouping direction defaults to BOTTOM_UP at the workspace level.
 - v1 upload/paste content is capped in validation (200k chars for pasted text) pending the real 25MB file pipeline.
+
+Product decisions confirmed during Phase 2 vertical slice
+- Anonymization consent is captured inline at the ingest step (default ON, single opt-out checkbox), and applied before any quote is persisted. The dedicated "anonymization" page is a read-only review/summary of what was masked, not a second consent gate.
+- v1 keeps a single affinity board per workspace; regenerating grouping replaces the prior board. Multiple saved boards are deferred.
+- DOC/DOCX ingest is deferred; the slice implements pasted text and CSV parsing only (other types are rejected at the ingest endpoint).
+- Persistence in the current slice uses an in-memory repository behind a Prisma-shaped interface; it is a dev stand-in to be swapped for PrismaClient without changing call sites.
+- Anonymous view-only access redacts any quote that was stored unmasked (opt-out uploads), so raw identifiers are never exposed via a share link. Anonymous links remain blocked from exports; exports stay available to all named roles (owner/editor/viewer).
+- Export formats: CSV is generated synchronously (inline artifact); PDF and FigJam are enqueued contracts for a future async worker.

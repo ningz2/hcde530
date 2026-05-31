@@ -1,0 +1,417 @@
+import { randomUUID } from "node:crypto";
+
+/**
+ * In-memory persistence for the Phase 2 vertical slice.
+ *
+ * This intentionally mirrors the Prisma schema shapes so it can be swapped for a
+ * real PrismaClient-backed repository later without changing call sites. State is
+ * held on a process-global singleton so API route handlers and server components
+ * share the same data within a running dev server. It resets on restart.
+ */
+
+export type GroupingDirection = "BOTTOM_UP" | "TOP_DOWN";
+export type UploadInputType = "CSV" | "TXT" | "DOC" | "DOCX" | "PASTED_TEXT";
+export type AnonymizationState = "PENDING_CONSENT" | "APPLIED" | "SKIPPED";
+export type EntityState = "ACTIVE" | "SOFT_DELETED";
+export type SnapshotAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "MOVE";
+export type SnapshotEntityType = "QUOTE" | "THEME" | "BOARD";
+
+export type WorkspaceRecord = {
+  id: string;
+  name: string;
+  researchQuestion?: string;
+  projectGoal?: string;
+  projectContext?: string;
+  defaultHierarchyDepth: number;
+  groupingDirection: GroupingDirection;
+  createdByUserId: string;
+  createdAt: string;
+};
+
+export type UploadRecord = {
+  id: string;
+  workspaceId: string;
+  submittedByUserId: string;
+  sourceType: UploadInputType;
+  originalFilename?: string;
+  anonymizationState: AnonymizationState;
+  anonymizationOptOut: boolean;
+  rawRetained: boolean;
+  createdAt: string;
+};
+
+export type ParticipantRecord = {
+  id: string;
+  workspaceId: string;
+  sourceLabel: string;
+  anonymizedLabel: string;
+  colorToken: string;
+  createdAt: string;
+};
+
+export type QuoteRecord = {
+  id: string;
+  workspaceId: string;
+  uploadId: string;
+  participantId: string;
+  content: string;
+  sourceRef?: string;
+  piiMasked: boolean;
+  state: EntityState;
+  createdAt: string;
+};
+
+export type BoardRecord = {
+  id: string;
+  workspaceId: string;
+  name: string;
+  hierarchyDepth: number;
+  createdAt: string;
+};
+
+export type ThemeRecord = {
+  id: string;
+  boardId: string;
+  parentThemeId?: string;
+  level: number;
+  title: string;
+  description?: string;
+  /** Distinct participants represented in this theme: drives the "mentioned by N" badge. */
+  participantCount: number;
+  /** 0..1 cross-mention emphasis ratio: drives stronger color density. */
+  mentionDensity: number;
+  state: EntityState;
+  createdAt: string;
+};
+
+export type ShareLinkScope = "WORKSPACE_VIEW" | "BOARD_VIEW";
+export type ShareLinkStatus = "ACTIVE" | "REVOKED" | "EXPIRED";
+
+export type ShareLinkRecord = {
+  id: string;
+  workspaceId: string;
+  boardId?: string;
+  createdByUserId: string;
+  tokenHash: string;
+  scope: ShareLinkScope;
+  status: ShareLinkStatus;
+  expiresAt?: string;
+  allowExport: boolean;
+  createdAt: string;
+};
+
+export type ExportFormat = "CSV" | "PDF" | "FIGJAM";
+export type ExportStatus = "QUEUED" | "READY" | "FAILED";
+
+export type ExportJobRecord = {
+  id: string;
+  workspaceId: string;
+  boardId: string;
+  requestedByUserId?: string;
+  format: ExportFormat;
+  status: ExportStatus;
+  /** Inline preview/artifact for synchronous formats (CSV); async formats stay QUEUED. */
+  artifactPreview?: string;
+  createdAt: string;
+};
+
+export type AssignmentRecord = {
+  id: string;
+  quoteId: string;
+  themeId: string;
+  rationale: string;
+  createdAt: string;
+};
+
+export type SnapshotRecord = {
+  id: string;
+  workspaceId: string;
+  userId: string;
+  entityType: SnapshotEntityType;
+  entityId: string;
+  action: SnapshotAction;
+  /** Previous value captured before the mutation, used to revert on undo. */
+  previous: Record<string, unknown>;
+  label: string;
+  createdAt: string;
+};
+
+export type ActivityLogRecord = {
+  id: string;
+  workspaceId: string;
+  actorUserId?: string;
+  action: string;
+  targetType: string;
+  targetId?: string;
+  createdAt: string;
+};
+
+type StoreShape = {
+  workspaces: Map<string, WorkspaceRecord>;
+  uploads: Map<string, UploadRecord>;
+  participants: Map<string, ParticipantRecord>;
+  quotes: Map<string, QuoteRecord>;
+  boards: Map<string, BoardRecord>;
+  themes: Map<string, ThemeRecord>;
+  assignments: Map<string, AssignmentRecord>;
+  shareLinks: Map<string, ShareLinkRecord>;
+  exportJobs: Map<string, ExportJobRecord>;
+  /** Undo stacks keyed by `${workspaceId}:${userId}` (per-user-session scope). */
+  snapshotStacks: Map<string, SnapshotRecord[]>;
+  activityLogs: ActivityLogRecord[];
+};
+
+declare global {
+  // eslint-disable-next-line no-var
+  var __mp2Store__: StoreShape | undefined;
+}
+
+function createStore(): StoreShape {
+  return {
+    workspaces: new Map(),
+    uploads: new Map(),
+    participants: new Map(),
+    quotes: new Map(),
+    boards: new Map(),
+    themes: new Map(),
+    assignments: new Map(),
+    shareLinks: new Map(),
+    exportJobs: new Map(),
+    snapshotStacks: new Map(),
+    activityLogs: []
+  };
+}
+
+const store: StoreShape = global.__mp2Store__ ?? createStore();
+
+if (process.env.NODE_ENV !== "production") {
+  global.__mp2Store__ = store;
+}
+
+function now(): string {
+  return new Date().toISOString();
+}
+
+function snapshotKey(workspaceId: string, userId: string): string {
+  return `${workspaceId}:${userId}`;
+}
+
+export const repo = {
+  reset(): void {
+    const fresh = createStore();
+    store.workspaces = fresh.workspaces;
+    store.uploads = fresh.uploads;
+    store.participants = fresh.participants;
+    store.quotes = fresh.quotes;
+    store.boards = fresh.boards;
+    store.themes = fresh.themes;
+    store.assignments = fresh.assignments;
+    store.shareLinks = fresh.shareLinks;
+    store.exportJobs = fresh.exportJobs;
+    store.snapshotStacks = fresh.snapshotStacks;
+    store.activityLogs = fresh.activityLogs;
+  },
+
+  createWorkspace(input: Omit<WorkspaceRecord, "id" | "createdAt">): WorkspaceRecord {
+    const record: WorkspaceRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.workspaces.set(record.id, record);
+    return record;
+  },
+
+  getWorkspace(id: string): WorkspaceRecord | undefined {
+    return store.workspaces.get(id);
+  },
+
+  listWorkspaces(): WorkspaceRecord[] {
+    return [...store.workspaces.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  createUpload(input: Omit<UploadRecord, "id" | "createdAt">): UploadRecord {
+    const record: UploadRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.uploads.set(record.id, record);
+    return record;
+  },
+
+  listUploads(workspaceId: string): UploadRecord[] {
+    return [...store.uploads.values()]
+      .filter((u) => u.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  /** Return existing participant for a source label or create one with a stable color. */
+  ensureParticipant(params: {
+    workspaceId: string;
+    sourceLabel: string;
+    anonymizedLabel: string;
+    assignColorToken: (existingCount: number) => string;
+  }): ParticipantRecord {
+    const existing = [...store.participants.values()].find(
+      (p) => p.workspaceId === params.workspaceId && p.sourceLabel === params.sourceLabel
+    );
+
+    if (existing) {
+      return existing;
+    }
+
+    const existingCount = [...store.participants.values()].filter(
+      (p) => p.workspaceId === params.workspaceId
+    ).length;
+
+    const record: ParticipantRecord = {
+      id: randomUUID(),
+      workspaceId: params.workspaceId,
+      sourceLabel: params.sourceLabel,
+      anonymizedLabel: params.anonymizedLabel,
+      colorToken: params.assignColorToken(existingCount),
+      createdAt: now()
+    };
+
+    store.participants.set(record.id, record);
+    return record;
+  },
+
+  listParticipants(workspaceId: string): ParticipantRecord[] {
+    return [...store.participants.values()].filter((p) => p.workspaceId === workspaceId);
+  },
+
+  createQuote(input: Omit<QuoteRecord, "id" | "createdAt">): QuoteRecord {
+    const record: QuoteRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.quotes.set(record.id, record);
+    return record;
+  },
+
+  listQuotes(workspaceId: string, includeDeleted = false): QuoteRecord[] {
+    return [...store.quotes.values()].filter(
+      (q) => q.workspaceId === workspaceId && (includeDeleted || q.state === "ACTIVE")
+    );
+  },
+
+  createBoard(input: Omit<BoardRecord, "id" | "createdAt">): BoardRecord {
+    const record: BoardRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.boards.set(record.id, record);
+    return record;
+  },
+
+  latestBoard(workspaceId: string): BoardRecord | undefined {
+    return [...store.boards.values()]
+      .filter((b) => b.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+  },
+
+  createTheme(input: Omit<ThemeRecord, "id" | "createdAt">): ThemeRecord {
+    const record: ThemeRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.themes.set(record.id, record);
+    return record;
+  },
+
+  getTheme(id: string): ThemeRecord | undefined {
+    return store.themes.get(id);
+  },
+
+  updateTheme(
+    id: string,
+    patch: Partial<Pick<ThemeRecord, "title" | "description" | "state" | "participantCount" | "mentionDensity">>
+  ): ThemeRecord {
+    const existing = store.themes.get(id);
+    if (!existing) {
+      throw new Error(`Theme ${id} not found`);
+    }
+    const updated = { ...existing, ...patch };
+    store.themes.set(id, updated);
+    return updated;
+  },
+
+  listThemes(boardId: string): ThemeRecord[] {
+    return [...store.themes.values()]
+      .filter((t) => t.boardId === boardId)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
+  },
+
+  createAssignment(input: Omit<AssignmentRecord, "id" | "createdAt">): AssignmentRecord {
+    const record: AssignmentRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.assignments.set(record.id, record);
+    return record;
+  },
+
+  listAssignmentsByTheme(themeId: string): AssignmentRecord[] {
+    return [...store.assignments.values()].filter((a) => a.themeId === themeId);
+  },
+
+  clearBoards(workspaceId: string): void {
+    for (const board of [...store.boards.values()].filter((b) => b.workspaceId === workspaceId)) {
+      const themes = [...store.themes.values()].filter((t) => t.boardId === board.id);
+      for (const theme of themes) {
+        for (const assignment of [...store.assignments.values()].filter((a) => a.themeId === theme.id)) {
+          store.assignments.delete(assignment.id);
+        }
+        store.themes.delete(theme.id);
+      }
+      store.boards.delete(board.id);
+    }
+  },
+
+  createShareLink(input: Omit<ShareLinkRecord, "id" | "createdAt">): ShareLinkRecord {
+    const record: ShareLinkRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.shareLinks.set(record.id, record);
+    return record;
+  },
+
+  findActiveShareLink(workspaceId: string, tokenHash: string): ShareLinkRecord | undefined {
+    return [...store.shareLinks.values()].find(
+      (link) =>
+        link.workspaceId === workspaceId &&
+        link.tokenHash === tokenHash &&
+        link.status === "ACTIVE" &&
+        (!link.expiresAt || link.expiresAt > now())
+    );
+  },
+
+  listShareLinks(workspaceId: string): ShareLinkRecord[] {
+    return [...store.shareLinks.values()].filter((l) => l.workspaceId === workspaceId);
+  },
+
+  createExportJob(input: Omit<ExportJobRecord, "id" | "createdAt">): ExportJobRecord {
+    const record: ExportJobRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.exportJobs.set(record.id, record);
+    return record;
+  },
+
+  listExportJobs(workspaceId: string): ExportJobRecord[] {
+    return [...store.exportJobs.values()]
+      .filter((j) => j.workspaceId === workspaceId)
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  pushSnapshot(input: Omit<SnapshotRecord, "id" | "createdAt">): SnapshotRecord {
+    const record: SnapshotRecord = { ...input, id: randomUUID(), createdAt: now() };
+    const key = snapshotKey(record.workspaceId, record.userId);
+    const stack = store.snapshotStacks.get(key) ?? [];
+    stack.push(record);
+    store.snapshotStacks.set(key, stack);
+    return record;
+  },
+
+  popSnapshot(workspaceId: string, userId: string): SnapshotRecord | undefined {
+    const key = snapshotKey(workspaceId, userId);
+    const stack = store.snapshotStacks.get(key);
+    if (!stack || stack.length === 0) {
+      return undefined;
+    }
+    const record = stack.pop();
+    store.snapshotStacks.set(key, stack);
+    return record;
+  },
+
+  listSnapshots(workspaceId: string, userId: string): SnapshotRecord[] {
+    const stack = store.snapshotStacks.get(snapshotKey(workspaceId, userId)) ?? [];
+    return [...stack].reverse();
+  },
+
+  logActivity(input: Omit<ActivityLogRecord, "id" | "createdAt">): void {
+    store.activityLogs.push({ ...input, id: randomUUID(), createdAt: now() });
+  },
+
+  listActivity(workspaceId: string): ActivityLogRecord[] {
+    return store.activityLogs.filter((a) => a.workspaceId === workspaceId);
+  }
+};
