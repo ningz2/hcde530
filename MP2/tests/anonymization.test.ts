@@ -24,18 +24,18 @@ describe("maskText", () => {
 });
 
 describe("RealAnonymizationService (privacy default ON)", () => {
-  const quotes = [{ participantLabel: "P1", text: "Contact me at jane@acme.com" }];
+  const codes = [{ participantLabel: "P1", code: "Contact me at jane@acme.com" }];
 
   it("masks by default when consent granted and not opted out", async () => {
-    const [result] = await service.maskQuotes({ quotes, consentGranted: true, optOut: false });
+    const [result] = await service.maskCodes({ codes, consentGranted: true, optOut: false });
     expect(result.piiMasked).toBe(true);
-    expect(result.text).toContain("[EMAIL]");
+    expect(result.code).toContain("[EMAIL]");
   });
 
   it("leaves raw text untouched when the user opts out", async () => {
-    const [result] = await service.maskQuotes({ quotes, consentGranted: true, optOut: true });
+    const [result] = await service.maskCodes({ codes, consentGranted: true, optOut: true });
     expect(result.piiMasked).toBe(false);
-    expect(result.text).toContain("jane@acme.com");
+    expect(result.code).toContain("jane@acme.com");
     expect(result.maskingNotes.join(" ")).toMatch(/opted out/i);
   });
 });

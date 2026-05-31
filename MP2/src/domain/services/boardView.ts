@@ -2,8 +2,10 @@ import { hexForToken } from "@/lib/color/palette";
 import { repo } from "@/lib/repo/store";
 
 export type BoardAssignmentView = {
-  quoteId: string;
-  content: string;
+  codeId: string;
+  code: string;
+  quote?: string;
+  memo?: string;
   rationale: string;
   piiMasked: boolean;
   participantLabel: string;
@@ -25,30 +27,32 @@ export type BoardView = {
   workspaceId: string;
   workspaceName?: string;
   board?: { id: string; name: string; hierarchyDepth: number };
-  quoteCount: number;
+  codeCount: number;
   themes: BoardThemeView[];
 };
+
+const REDACTED = "[hidden: contains unmasked identifiers]";
 
 /**
  * Builds the read model rendered by the board page (server component).
  *
- * When `redactUnmasked` is set (anonymous share viewers), any quote that was
+ * When `redactUnmasked` is set (anonymous share viewers), any code that was
  * stored without anonymization is hidden so raw identifiers are never exposed
  * through a view-only link.
  */
 export function getBoardView(workspaceId: string, options?: { redactUnmasked?: boolean }): BoardView {
   const redactUnmasked = options?.redactUnmasked ?? false;
   const workspace = repo.getWorkspace(workspaceId);
-  const quotes = repo.listQuotes(workspaceId);
+  const codes = repo.listCodes(workspaceId);
   const participants = new Map(repo.listParticipants(workspaceId).map((p) => [p.id, p]));
-  const quoteById = new Map(quotes.map((q) => [q.id, q]));
+  const codeById = new Map(codes.map((c) => [c.id, c]));
   const board = repo.latestBoard(workspaceId);
 
   if (!board) {
     return {
       workspaceId,
       workspaceName: workspace?.name,
-      quoteCount: quotes.length,
+      codeCount: codes.length,
       themes: []
     };
   }
@@ -57,17 +61,19 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
     const assignments = repo
       .listAssignmentsByTheme(theme.id)
       .map((assignment): BoardAssignmentView | undefined => {
-        const quote = quoteById.get(assignment.quoteId);
-        if (!quote) {
+        const item = codeById.get(assignment.codeId);
+        if (!item) {
           return undefined;
         }
-        const participant = participants.get(quote.participantId);
-        const hideRaw = redactUnmasked && !quote.piiMasked;
+        const participant = participants.get(item.participantId);
+        const hideRaw = redactUnmasked && !item.piiMasked;
         return {
-          quoteId: quote.id,
-          content: hideRaw ? "[hidden: contains unmasked identifiers]" : quote.content,
+          codeId: item.id,
+          code: hideRaw ? REDACTED : item.code,
+          quote: hideRaw ? undefined : item.quote,
+          memo: hideRaw ? undefined : item.memo,
           rationale: assignment.rationale,
-          piiMasked: quote.piiMasked,
+          piiMasked: item.piiMasked,
           participantLabel: participant?.anonymizedLabel ?? "Unknown",
           participantHex: hexForToken(participant?.colorToken ?? "")
         };
@@ -88,7 +94,7 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
     workspaceId,
     workspaceName: workspace?.name,
     board: { id: board.id, name: board.name, hierarchyDepth: board.hierarchyDepth },
-    quoteCount: quotes.length,
+    codeCount: codes.length,
     themes
   };
 }

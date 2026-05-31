@@ -5,14 +5,14 @@ import type {
   GroupingAiService,
   ParserService
 } from "@/domain/contracts/services";
-import type { AnonymizedQuote, ParsedQuote, StrategyRequest } from "@/domain/entities/types";
+import type { AnonymizedCode, ParsedCode, StrategyRequest } from "@/domain/entities/types";
 
 export class MockParserService implements ParserService {
   async parse(params: {
     sourceType: "CSV" | "TXT" | "DOC" | "DOCX" | "PASTED_TEXT";
     payload: string;
     filename?: string;
-  }): Promise<ParsedQuote[]> {
+  }): Promise<ParsedCode[]> {
     const chunks = params.payload
       .split(/\n+/)
       .map((line) => line.trim())
@@ -22,22 +22,22 @@ export class MockParserService implements ParserService {
     return chunks.map((line, index) => ({
       sourceRef: params.filename ?? params.sourceType,
       participantLabel: `P-${(index % 4) + 1}`,
-      text: line
+      code: line
     }));
   }
 }
 
 export class MockAnonymizationService implements AnonymizationService {
-  async maskQuotes(params: {
-    quotes: ParsedQuote[];
+  async maskCodes(params: {
+    codes: ParsedCode[];
     consentGranted: boolean;
     optOut: boolean;
-  }): Promise<AnonymizedQuote[]> {
+  }): Promise<AnonymizedCode[]> {
     const shouldMask = params.consentGranted && !params.optOut;
 
-    return params.quotes.map((quote) => ({
-      ...quote,
-      text: shouldMask ? quote.text.replace(/\b[A-Z][a-z]+\b/g, "[REDACTED]") : quote.text,
+    return params.codes.map((item) => ({
+      ...item,
+      code: shouldMask ? item.code.replace(/\b[A-Z][a-z]+\b/g, "[REDACTED]") : item.code,
       piiMasked: shouldMask,
       maskingNotes: shouldMask ? ["Mock named-entity masking applied."] : ["Masking skipped by user."]
     }));
@@ -61,15 +61,15 @@ export class MockGroupingAiService implements GroupingAiService {
     strategyPrompt: string;
     boardName: string;
     hierarchyDepth: number;
-    quotes: AnonymizedQuote[];
+    codes: AnonymizedCode[];
   }) {
     return {
       boardName: params.boardName,
       hierarchyDepth: params.hierarchyDepth,
-      assignments: params.quotes.slice(0, 10).map((quote, index) => ({
-        quoteId: `mock-quote-${index + 1}`,
+      assignments: params.codes.slice(0, 10).map((_code, index) => ({
+        codeId: `mock-code-${index + 1}`,
         themeTitle: `Theme ${(index % 3) + 1}`,
-        rationale: "Quote discusses recurring user needs aligned with this theme cluster.",
+        rationale: "Code reflects recurring user needs aligned with this theme cluster.",
         participantCount: 1
       }))
     };

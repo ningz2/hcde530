@@ -1,22 +1,25 @@
 import type { ParserService } from "@/domain/contracts/services";
-import type { ParsedQuote } from "@/domain/entities/types";
+import type { ParsedCode } from "@/domain/entities/types";
 
 /**
- * Real parser for the two ingest paths implemented in this slice:
- *  - PASTED_TEXT / TXT: one quote per non-empty line.
- *  - CSV: expects a header row; uses `participant`/`speaker`/`source` for the
- *    participant label column and `quote`/`text`/`comment` for the content column.
- *    Falls back to first column as participant, second as content.
+ * Real parser for the two ingest paths implemented in this slice. The unit is a
+ * CODE; quote/memo are optional supporting context.
+ *  - PASTED_TEXT / TXT: one code per non-empty line (no quote/memo/participant).
+ *  - CSV: header-driven columns (case-insensitive, with synonyms):
+ *      code        -> code | label | category | theme | concept   (required)
+ *      quote       -> quote | excerpt | evidence | verbatim        (optional)
+ *      memo        -> memo | note | notes | comment | annotation   (optional)
+ *      participant -> participant | speaker | source | respondent  (optional)
+ *    With no recognizable header, falls back to: col0=code, col1=quote, col2=memo.
  *
- * DOC/DOCX are not implemented yet and are rejected by the route validation path
- * (the contract still lists them for forward compatibility).
+ * DOC/DOCX are not implemented yet and are rejected by the route validation path.
  */
 export class RealParserService implements ParserService {
   async parse(params: {
     sourceType: "CSV" | "TXT" | "DOC" | "DOCX" | "PASTED_TEXT";
     payload: string;
     filename?: string;
-  }): Promise<ParsedQuote[]> {
+  }): Promise<ParsedCode[]> {
     if (params.sourceType === "CSV") {
       return parseCsv(params.payload, params.filename);
     }
@@ -24,52 +27,89 @@ export class RealParserService implements ParserService {
   }
 }
 
-function parseLines(payload: string, sourceRef: string): ParsedQuote[] {
+const UNASSIGNED = "Unassigned";
+
+function parseLines(payload: string, sourceRef: string): ParsedCode[] {
   return payload
     .split(/\r?\n/)
     .map((line) => line.trim())
     .filter(Boolean)
-    .map((text, index) => ({
+    .map((code) => ({
       sourceRef,
-      participantLabel: `Participant ${index + 1}`,
-      text
+      participantLabel: UNASSIGNED,
+      code
     }));
 }
 
-function parseCsv(payload: string, filename?: string): ParsedQuote[] {
-  const rows = parseCsvRows(payload);
+function parseCsv(payload: string, filename?: string): ParsedCode[] {
+  // Strip a leading UTF-8 BOM that some spreadsheet exports prepend.
+  const cleaned = payload.replace(/^\uFEFF/, "");
+  const delimiter = detectDelimiter(cleaned);
+  const rows = parseCsvRows(cleaned, delimiter);
   if (rows.length === 0) {
     return [];
   }
 
   const header = rows[0].map((cell) => cell.trim().toLowerCase());
+  const codeIdx = findColumn(header, ["code", "label", "category", "theme", "concept"]);
+  const quoteIdx = findColumn(header, ["quote", "excerpt", "evidence", "verbatim"]);
+  const memoIdx = findColumn(header, ["memo", "note", "notes", "comment", "annotation"]);
   const participantIdx = findColumn(header, ["participant", "speaker", "source", "respondent"]);
-  const contentIdx = findColumn(header, ["quote", "text", "comment", "response", "feedback"]);
 
-  const hasHeader = participantIdx !== -1 || contentIdx !== -1;
+  const hasHeader =
+    codeIdx !== -1 || quoteIdx !== -1 || memoIdx !== -1 || participantIdx !== -1;
   const dataRows = hasHeader ? rows.slice(1) : rows;
-  const pIdx = participantIdx === -1 ? 0 : participantIdx;
-  const cIdx = contentIdx === -1 ? 1 : contentIdx;
 
-  const quotes: ParsedQuote[] = [];
-  dataRows.forEach((row, index) => {
-    const text = (row[cIdx] ?? "").trim();
-    if (!text) {
+  // Fallbacks when columns aren't explicitly labeled: col0=code, col1=quote, col2=memo.
+  const cIdx = codeIdx === -1 ? 0 : codeIdx;
+  const qIdx = quoteIdx === -1 ? (hasHeader ? -1 : 1) : quoteIdx;
+  const mIdx = memoIdx === -1 ? (hasHeader ? -1 : 2) : memoIdx;
+
+  const codes: ParsedCode[] = [];
+  dataRows.forEach((row) => {
+    const code = (row[cIdx] ?? "").trim();
+    if (!code) {
       return;
     }
-    const participantLabel = (row[pIdx] ?? "").trim() || `Participant ${index + 1}`;
-    quotes.push({ sourceRef: filename ?? "upload.csv", participantLabel, text });
+    const quote = qIdx >= 0 ? (row[qIdx] ?? "").trim() : "";
+    const memo = mIdx >= 0 ? (row[mIdx] ?? "").trim() : "";
+    const participantLabel =
+      participantIdx >= 0 ? (row[participantIdx] ?? "").trim() || UNASSIGNED : UNASSIGNED;
+
+    codes.push({
+      sourceRef: filename ?? "upload.csv",
+      participantLabel,
+      code,
+      quote: quote || undefined,
+      memo: memo || undefined
+    });
   });
 
-  return quotes;
+  return codes;
 }
 
 function findColumn(header: string[], candidates: string[]): number {
   return header.findIndex((cell) => candidates.includes(cell));
 }
 
-/** Minimal RFC-4180-ish CSV parser supporting quoted fields and escaped quotes. */
-export function parseCsvRows(input: string): string[][] {
+/** Pick the most likely delimiter from the first line (comma, semicolon, or tab). */
+function detectDelimiter(input: string): string {
+  const firstLine = input.split(/\r?\n/, 1)[0] ?? "";
+  const candidates = [",", ";", "\t"];
+  let best = ",";
+  let bestCount = -1;
+  for (const candidate of candidates) {
+    const count = firstLine.split(candidate).length - 1;
+    if (count > bestCount) {
+      bestCount = count;
+      best = candidate;
+    }
+  }
+  return best;
+}
+
+/** Minimal RFC-4180-ish CSV parser supporting quoted fields, escaped quotes, and a configurable delimiter. */
+export function parseCsvRows(input: string, delimiter = ","): string[][] {
   const rows: string[][] = [];
   let field = "";
   let row: string[] = [];
@@ -94,7 +134,7 @@ export function parseCsvRows(input: string): string[][] {
 
     if (char === '"') {
       inQuotes = true;
-    } else if (char === ",") {
+    } else if (char === delimiter) {
       row.push(field);
       field = "";
     } else if (char === "\n" || char === "\r") {

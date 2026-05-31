@@ -15,10 +15,16 @@ export function toErrorResponse(error: unknown, traceId?: string): NextResponse 
     return NextResponse.json({ error: payload }, { status: error.status });
   }
 
+  console.error("[api] unhandled error", traceId, error);
+
   const payload: ApiErrorPayload = {
     code: "INTERNAL_ERROR",
     message: defaultMessage,
-    traceId
+    traceId,
+    details:
+      process.env.NODE_ENV === "production"
+        ? undefined
+        : { dev: error instanceof Error ? `${error.name}: ${error.message}` : String(error) }
   };
 
   return NextResponse.json({ error: payload }, { status: 500 });

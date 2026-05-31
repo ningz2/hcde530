@@ -9,7 +9,7 @@ export type GenerateBoardResult = {
 /**
  * Deterministic stand-in for the Anthropic grouping call.
  *
- * It produces a *real* persisted board: Theme + QuoteAssignment records, each
+ * It produces a *real* persisted board: Theme + Assignment records, each
  * assignment carrying a one-sentence rationale (a hard requirement of the AI
  * workflow). The clustering itself is a simple stable round-robin so the slice
  * is reproducible and testable; the real model swaps in behind this function.
@@ -19,8 +19,8 @@ export function generateBoard(params: {
   boardName: string;
   hierarchyDepth: number;
 }): GenerateBoardResult {
-  const quotes = repo
-    .listQuotes(params.workspaceId)
+  const codes = repo
+    .listCodes(params.workspaceId)
     .sort((a, b) => a.createdAt.localeCompare(b.createdAt));
 
   // One board per workspace in this slice: replace any prior board.
@@ -32,12 +32,12 @@ export function generateBoard(params: {
     hierarchyDepth: params.hierarchyDepth
   });
 
-  if (quotes.length === 0) {
+  if (codes.length === 0) {
     return { boardId: board.id, themeCount: 0, assignmentCount: 0 };
   }
 
   const totalParticipants = Math.max(repo.listParticipants(params.workspaceId).length, 1);
-  const themeCount = Math.min(3, quotes.length);
+  const themeCount = Math.min(3, codes.length);
   const themes = Array.from({ length: themeCount }, (_, index) =>
     repo.createTheme({
       boardId: board.id,
@@ -53,19 +53,18 @@ export function generateBoard(params: {
   const participantsByTheme = new Map<string, Set<string>>();
   let assignmentCount = 0;
 
-  quotes.forEach((quote, index) => {
+  codes.forEach((item, index) => {
     const theme = themes[index % themeCount];
-    const snippet = quote.content.split(/\s+/).slice(0, 4).join(" ");
 
     repo.createAssignment({
-      quoteId: quote.id,
+      codeId: item.id,
       themeId: theme.id,
-      rationale: `Mentions "${snippet}…"; grouped under ${theme.title} with related quotes.`
+      rationale: `Code "${item.code}" grouped under ${theme.title} with related codes.`
     });
     assignmentCount += 1;
 
     const set = participantsByTheme.get(theme.id) ?? new Set<string>();
-    set.add(quote.participantId);
+    set.add(item.participantId);
     participantsByTheme.set(theme.id, set);
   });
 

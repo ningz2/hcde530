@@ -1,7 +1,7 @@
 import type {
-  AnonymizedQuote,
+  AnonymizedCode,
   GroupingResult,
-  ParsedQuote,
+  ParsedCode,
   StrategyRequest
 } from "@/domain/entities/types";
 
@@ -10,15 +10,15 @@ export interface ParserService {
     sourceType: "CSV" | "TXT" | "DOC" | "DOCX" | "PASTED_TEXT";
     payload: string;
     filename?: string;
-  }): Promise<ParsedQuote[]>;
+  }): Promise<ParsedCode[]>;
 }
 
 export interface AnonymizationService {
-  maskQuotes(params: {
-    quotes: ParsedQuote[];
+  maskCodes(params: {
+    codes: ParsedCode[];
     consentGranted: boolean;
     optOut: boolean;
-  }): Promise<AnonymizedQuote[]>;
+  }): Promise<AnonymizedCode[]>;
 }
 
 export interface GroupingAiService {
@@ -31,7 +31,7 @@ export interface GroupingAiService {
     strategyPrompt: string;
     boardName: string;
     hierarchyDepth: number;
-    quotes: AnonymizedQuote[];
+    codes: AnonymizedCode[];
   }): Promise<GroupingResult>;
 }
 

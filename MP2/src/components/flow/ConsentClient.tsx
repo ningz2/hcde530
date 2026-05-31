@@ -8,7 +8,7 @@ import { apiPost, isError } from "@/lib/client/api";
  * Privacy-check step. The user confirms whether to mask personal data in the
  * already-stored quotes. Default is ON (recommended); opting out keeps data as-is.
  */
-export function ConsentClient({ workspaceId, quoteCount }: { workspaceId: string; quoteCount: number }) {
+export function ConsentClient({ workspaceId, codeCount }: { workspaceId: string; codeCount: number }) {
   const router = useRouter();
   const [applyMasking, setApplyMasking] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -26,7 +26,7 @@ export function ConsentClient({ workspaceId, quoteCount }: { workspaceId: string
     router.push(`/workspaces/${workspaceId}/strategy`);
   }
 
-  if (quoteCount === 0) {
+  if (codeCount === 0) {
     return (
       <p style={{ color: "#6b7280" }}>
         No data found for this project yet. Go back and add data first.
@@ -37,7 +37,7 @@ export function ConsentClient({ workspaceId, quoteCount }: { workspaceId: string
   return (
     <div style={{ display: "grid", gap: "1rem", maxWidth: 560 }}>
       <p style={{ margin: 0 }}>
-        {quoteCount} quote{quoteCount === 1 ? "" : "s"} were extracted. Choose how to handle personal
+        {codeCount} code{codeCount === 1 ? "" : "s"} were extracted. Choose how to handle personal
         information before continuing.
       </p>
 
@@ -58,7 +58,7 @@ export function ConsentClient({ workspaceId, quoteCount }: { workspaceId: string
           <strong>Keep data as-is</strong>
           <br />
           <span style={{ color: "#6b7280", fontSize: 13 }}>
-            No masking. Personal information may remain in your quotes.
+            No masking. Personal information may remain in your codes.
           </span>
         </span>
       </label>

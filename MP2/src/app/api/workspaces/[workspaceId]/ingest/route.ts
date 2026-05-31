@@ -41,6 +41,14 @@ export async function POST(request: Request, { params }: RouteProps) {
       filename: input.filename
     });
 
+    if (result.codeCount === 0) {
+      throw new ApiError(
+        "VALIDATION_ERROR",
+        "We couldn't find any codes in that data. For CSV, include a 'code' column (optionally 'quote', 'memo', 'participant'); for text, put one code per line.",
+        400
+      );
+    }
+
     return ok(
       {
         workspaceId,
@@ -49,7 +57,7 @@ export async function POST(request: Request, { params }: RouteProps) {
           // Raw discarded after extraction; masking decision happens in the next step.
           status: "EXTRACTED_PENDING_CONSENT",
           rawRetained: false,
-          quoteCount: result.quoteCount,
+          codeCount: result.codeCount,
           participants: result.participants
         }
       },

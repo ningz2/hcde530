@@ -47,7 +47,7 @@ export function BoardClient({ view }: { view: BoardView }) {
           Undo last change
         </button>
         <span style={{ color: "#6b7280", fontSize: 13 }}>
-          {view.quoteCount} stored quotes{view.board ? ` · ${view.themes.length} themes` : ""}
+          {view.codeCount} stored codes{view.board ? ` · ${view.themes.length} themes` : ""}
         </span>
       </div>
 
@@ -55,7 +55,7 @@ export function BoardClient({ view }: { view: BoardView }) {
 
       {!view.board && (
         <p style={{ margin: 0, color: "#6b7280" }}>
-          No board yet. Ingest data, then generate an affinity board.
+          No board yet. Add data, then generate an affinity board to group your codes.
         </p>
       )}
 
@@ -128,7 +128,7 @@ function ThemeCard({
       <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.5rem" }}>
         {theme.assignments.map((assignment) => (
           <li
-            key={assignment.quoteId}
+            key={assignment.codeId}
             style={{
               borderLeft: `4px solid ${assignment.participantHex}`,
               background: densityBackgroundFromRatio(assignment.participantHex, theme.colorDensity),
@@ -136,8 +136,18 @@ function ThemeCard({
               padding: "0.5rem 0.6rem"
             }}
           >
-            <p style={{ margin: 0, fontSize: 13 }}>{assignment.content}</p>
-            <p style={{ margin: "0.25rem 0 0", fontSize: 11, color: "#6b7280" }}>
+            <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{assignment.code}</p>
+            {assignment.quote && (
+              <p style={{ margin: "0.2rem 0 0", fontSize: 12, fontStyle: "italic", color: "#374151" }}>
+                “{assignment.quote}”
+              </p>
+            )}
+            {assignment.memo && (
+              <p style={{ margin: "0.2rem 0 0", fontSize: 11, color: "#6b7280" }}>
+                Memo: {assignment.memo}
+              </p>
+            )}
+            <p style={{ margin: "0.3rem 0 0", fontSize: 11, color: "#6b7280" }}>
               <span style={{ color: assignment.participantHex, fontWeight: 600 }}>
                 {assignment.participantLabel}
               </span>{" "}

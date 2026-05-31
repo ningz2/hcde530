@@ -17,7 +17,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
   return (
     <PageShell
       title="Affinity board"
-      description="Suggested themes with a one-line reason per quote and participant colors. Rename themes inline; undo is per session."
+      description="Suggested themes grouping your codes, with a one-line reason per code and participant colors. Rename themes inline; undo is per session."
     >
       <WizardProgress current="board" />
       <BoardClient view={view} />

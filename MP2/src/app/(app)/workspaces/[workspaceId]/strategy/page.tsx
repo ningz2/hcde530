@@ -14,7 +14,7 @@ export default async function StrategyPage({ params }: StrategyPageProps) {
   return (
     <PageShell
       title="Set up grouping"
-      description="Tell the assistant your research question and goals so it can suggest how to group quotes into themes."
+      description="Tell the assistant your research question and goals so it can suggest how to group your codes into themes."
     >
       <WizardProgress current="strategy" />
       <p style={{ color: "#6b7280" }}>

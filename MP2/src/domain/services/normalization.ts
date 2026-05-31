@@ -7,23 +7,27 @@ const parser = new RealParserService();
 
 export type ExtractResult = {
   uploadId: string;
-  quoteCount: number;
+  codeCount: number;
   participants: { anonymizedLabel: string; colorToken: string }[];
 };
 
 export type AnonymizationResult = {
-  totalQuotes: number;
+  totalCodes: number;
+  /** Codes that actually had identifiers removed (some field changed). */
   maskedCount: number;
   applied: boolean;
+  /** Distinct categories of identifiers found, e.g. ["email", "name"]. */
+  categories: string[];
   maskingNotes: string[];
 };
 
 /**
- * Step 1 of the pipeline: parse the raw input and store normalized quote items.
+ * Step 1 of the pipeline: parse the raw input and store normalized code items
+ * (each with optional quote/memo context).
  *
  * Masking is deliberately NOT applied here — consent is a separate step. The raw
  * source payload is used only transiently for extraction and is never persisted
- * (`rawRetained: false`); only normalized quote items are stored, initially in a
+ * (`rawRetained: false`); only normalized code items are stored, initially in a
  * PENDING_CONSENT state.
  */
 export async function extractAndStore(params: {
@@ -59,22 +63,24 @@ export async function extractAndStore(params: {
 
   const participantTokens = new Map<string, string>();
 
-  for (const quote of parsed) {
+  for (const item of parsed) {
     const participant = repo.ensureParticipant({
       workspaceId: params.workspaceId,
-      sourceLabel: quote.participantLabel,
-      anonymizedLabel: quote.participantLabel,
+      sourceLabel: item.participantLabel,
+      anonymizedLabel: item.participantLabel,
       assignColorToken: (existingCount) => colorTokenForIndex(existingCount)
     });
 
     participantTokens.set(participant.anonymizedLabel, participant.colorToken);
 
-    repo.createQuote({
+    repo.createCode({
       workspaceId: params.workspaceId,
       uploadId: upload.id,
       participantId: participant.id,
-      content: quote.text,
-      sourceRef: quote.sourceRef,
+      code: item.code,
+      quote: item.quote,
+      memo: item.memo,
+      sourceRef: item.sourceRef,
       piiMasked: false,
       state: "ACTIVE"
     });
@@ -82,7 +88,7 @@ export async function extractAndStore(params: {
 
   return {
     uploadId: upload.id,
-    quoteCount: parsed.length,
+    codeCount: parsed.length,
     participants: [...participantTokens.entries()].map(([anonymizedLabel, colorToken]) => ({
       anonymizedLabel,
       colorToken
@@ -98,23 +104,44 @@ export function applyAnonymization(params: {
   workspaceId: string;
   applyMasking: boolean;
 }): AnonymizationResult {
-  const quotes = repo.listQuotes(params.workspaceId);
+  const codes = repo.listCodes(params.workspaceId);
   const notes = new Set<string>();
+  const categories = new Set<string>();
   let maskedCount = 0;
 
   if (params.applyMasking) {
-    for (const quote of quotes) {
-      if (quote.piiMasked) {
-        maskedCount += 1;
+    for (const item of codes) {
+      if (item.piiMasked) {
         continue;
       }
-      const { text, notes: quoteNotes } = maskText(quote.content);
-      repo.updateQuote(quote.id, { content: text, piiMasked: true });
-      quoteNotes.forEach((note) => notes.add(note));
-      maskedCount += 1;
+      // Mask across all three text fields: code, quote, and memo.
+      const maskedCode = maskText(item.code);
+      const maskedQuote = item.quote ? maskText(item.quote) : undefined;
+      const maskedMemo = item.memo ? maskText(item.memo) : undefined;
+
+      const changed =
+        maskedCode.text !== item.code ||
+        (maskedQuote ? maskedQuote.text !== item.quote : false) ||
+        (maskedMemo ? maskedMemo.text !== item.memo : false);
+
+      repo.updateCode(item.id, {
+        code: maskedCode.text,
+        quote: maskedQuote?.text ?? item.quote,
+        memo: maskedMemo?.text ?? item.memo,
+        piiMasked: true
+      });
+
+      [maskedCode, maskedQuote, maskedMemo].forEach((result) => {
+        result?.notes.forEach((note) => notes.add(note));
+        result?.categories.forEach((category) => categories.add(category));
+      });
+
+      if (changed) {
+        maskedCount += 1;
+      }
     }
   } else {
-    notes.add("Masking skipped: quotes stored as provided.");
+    notes.add("Masking skipped: codes stored as provided.");
   }
 
   for (const upload of repo.listUploads(params.workspaceId)) {
@@ -132,9 +159,10 @@ export function applyAnonymization(params: {
   });
 
   return {
-    totalQuotes: quotes.length,
+    totalCodes: codes.length,
     maskedCount: params.applyMasking ? maskedCount : 0,
     applied: params.applyMasking,
+    categories: [...categories],
     maskingNotes: [...notes]
   };
 }

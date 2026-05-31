@@ -19,13 +19,20 @@ export type AnonymousShareContext = {
   allowExport: boolean;
 };
 
-export type ParsedQuote = {
+/**
+ * The unit of analysis is a CODE. Each code optionally carries a supporting
+ * quote and/or memo to help interpret it. Codes may be associated with a
+ * participant (optional), which drives participant-aware colors/emphasis.
+ */
+export type ParsedCode = {
   sourceRef?: string;
   participantLabel: string;
-  text: string;
+  code: string;
+  quote?: string;
+  memo?: string;
 };
 
-export type AnonymizedQuote = ParsedQuote & {
+export type AnonymizedCode = ParsedCode & {
   piiMasked: boolean;
   maskingNotes: string[];
 };
@@ -40,7 +47,7 @@ export type StrategyRequest = {
 };
 
 export type GroupingAssignment = {
-  quoteId: string;
+  codeId: string;
   themeTitle: string;
   rationale: string;
   participantCount: number;

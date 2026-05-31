@@ -14,7 +14,7 @@ export type UploadInputType = "CSV" | "TXT" | "DOC" | "DOCX" | "PASTED_TEXT";
 export type AnonymizationState = "PENDING_CONSENT" | "APPLIED" | "SKIPPED";
 export type EntityState = "ACTIVE" | "SOFT_DELETED";
 export type SnapshotAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "MOVE";
-export type SnapshotEntityType = "QUOTE" | "THEME" | "BOARD";
+export type SnapshotEntityType = "CODE" | "THEME" | "BOARD";
 
 export type WorkspaceRecord = {
   id: string;
@@ -49,12 +49,18 @@ export type ParticipantRecord = {
   createdAt: string;
 };
 
-export type QuoteRecord = {
+/**
+ * A code is the unit grouped into themes. `quote` and `memo` are optional
+ * supporting context. All three text fields are subject to anonymization.
+ */
+export type CodeRecord = {
   id: string;
   workspaceId: string;
   uploadId: string;
   participantId: string;
-  content: string;
+  code: string;
+  quote?: string;
+  memo?: string;
   sourceRef?: string;
   piiMasked: boolean;
   state: EntityState;
@@ -117,7 +123,7 @@ export type ExportJobRecord = {
 
 export type AssignmentRecord = {
   id: string;
-  quoteId: string;
+  codeId: string;
   themeId: string;
   rationale: string;
   createdAt: string;
@@ -150,7 +156,7 @@ type StoreShape = {
   workspaces: Map<string, WorkspaceRecord>;
   uploads: Map<string, UploadRecord>;
   participants: Map<string, ParticipantRecord>;
-  quotes: Map<string, QuoteRecord>;
+  codes: Map<string, CodeRecord>;
   boards: Map<string, BoardRecord>;
   themes: Map<string, ThemeRecord>;
   assignments: Map<string, AssignmentRecord>;
@@ -171,7 +177,7 @@ function createStore(): StoreShape {
     workspaces: new Map(),
     uploads: new Map(),
     participants: new Map(),
-    quotes: new Map(),
+    codes: new Map(),
     boards: new Map(),
     themes: new Map(),
     assignments: new Map(),
@@ -182,7 +188,28 @@ function createStore(): StoreShape {
   };
 }
 
-const store: StoreShape = global.__mp2Store__ ?? createStore();
+/**
+ * Reuse the process-global store across dev hot-reloads, but backfill any fields
+ * added after the global was first created. Without this, a store created before
+ * new maps (e.g. exportJobs/shareLinks) were added would be missing them and
+ * crash with "Cannot read properties of undefined" until a full server restart.
+ */
+function initStore(): StoreShape {
+  const existing = global.__mp2Store__;
+  const fresh = createStore();
+  if (!existing) {
+    return fresh;
+  }
+  for (const key of Object.keys(fresh) as (keyof StoreShape)[]) {
+    if (existing[key] === undefined) {
+      // Index assignment across the union of map/array fields is safe here.
+      (existing as Record<string, unknown>)[key] = fresh[key];
+    }
+  }
+  return existing;
+}
+
+const store: StoreShape = initStore();
 
 if (process.env.NODE_ENV !== "production") {
   global.__mp2Store__ = store;
@@ -202,7 +229,7 @@ export const repo = {
     store.workspaces = fresh.workspaces;
     store.uploads = fresh.uploads;
     store.participants = fresh.participants;
-    store.quotes = fresh.quotes;
+    store.codes = fresh.codes;
     store.boards = fresh.boards;
     store.themes = fresh.themes;
     store.assignments = fresh.assignments;
@@ -284,22 +311,25 @@ export const repo = {
     return [...store.participants.values()].filter((p) => p.workspaceId === workspaceId);
   },
 
-  createQuote(input: Omit<QuoteRecord, "id" | "createdAt">): QuoteRecord {
-    const record: QuoteRecord = { ...input, id: randomUUID(), createdAt: now() };
-    store.quotes.set(record.id, record);
+  createCode(input: Omit<CodeRecord, "id" | "createdAt">): CodeRecord {
+    const record: CodeRecord = { ...input, id: randomUUID(), createdAt: now() };
+    store.codes.set(record.id, record);
     return record;
   },
 
-  listQuotes(workspaceId: string, includeDeleted = false): QuoteRecord[] {
-    return [...store.quotes.values()].filter(
-      (q) => q.workspaceId === workspaceId && (includeDeleted || q.state === "ACTIVE")
+  listCodes(workspaceId: string, includeDeleted = false): CodeRecord[] {
+    return [...store.codes.values()].filter(
+      (c) => c.workspaceId === workspaceId && (includeDeleted || c.state === "ACTIVE")
     );
   },
 
-  updateQuote(id: string, patch: Partial<Pick<QuoteRecord, "content" | "piiMasked" | "state">>): void {
-    const existing = store.quotes.get(id);
+  updateCode(
+    id: string,
+    patch: Partial<Pick<CodeRecord, "code" | "quote" | "memo" | "piiMasked" | "state">>
+  ): void {
+    const existing = store.codes.get(id);
     if (existing) {
-      store.quotes.set(id, { ...existing, ...patch });
+      store.codes.set(id, { ...existing, ...patch });
     }
   },
 

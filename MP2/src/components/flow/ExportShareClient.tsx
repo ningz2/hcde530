@@ -88,7 +88,7 @@ export function ExportShareClient({ workspaceId }: { workspaceId: string }) {
             Share token (shown once): <code>{shareToken}</code>
             <br />
             <span style={{ color: "#6b7280" }}>
-              View-only access sends this as the <code>x-share-token</code> header; unmasked quotes are
+              View-only access sends this as the <code>x-share-token</code> header; unmasked codes are
               redacted and edit/admin/export are blocked.
             </span>
           </p>

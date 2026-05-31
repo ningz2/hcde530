@@ -57,7 +57,9 @@ function logExport(workspaceId: string, userId: string | undefined, jobId: strin
 
 export function buildBoardCsv(workspaceId: string): string {
   const view = getBoardView(workspaceId);
-  const rows: string[][] = [["theme", "mention_count", "participant", "quote", "rationale"]];
+  const rows: string[][] = [
+    ["theme", "mention_count", "participant", "code", "quote", "memo", "rationale"]
+  ];
 
   for (const theme of view.themes) {
     for (const assignment of theme.assignments) {
@@ -65,7 +67,9 @@ export function buildBoardCsv(workspaceId: string): string {
         theme.title,
         String(theme.mentionCount),
         assignment.participantLabel,
-        assignment.content,
+        assignment.code,
+        assignment.quote ?? "",
+        assignment.memo ?? "",
         assignment.rationale
       ]);
     }

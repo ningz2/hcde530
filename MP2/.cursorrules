@@ -86,7 +86,7 @@ Assumptions introduced during Phase 1 frame scaffolding
 - v1 upload/paste content is capped in validation (200k chars for pasted text) pending the real 25MB file pipeline.
 
 Product decisions confirmed during Phase 2 vertical slice
-- Anonymization consent is its own step AFTER data upload is confirmed (revised Phase 3): the upload step extracts and stores quotes unmasked (state PENDING_CONSENT) and discards the raw source; the "Privacy check" step then applies masking (default ON, with an explicit opt-out to keep data as-is). Masking still happens before grouping/board generation and before any share-link exposure.
+- Anonymization consent is a follow-up modal shown immediately AFTER data upload (revised Phase 4): the upload step extracts and stores quotes unmasked (state PENDING_CONSENT) and discards the raw source; a privacy-check modal then applies masking (default ON, explicit opt-out) and reports back what was masked (count of affected quotes + categories such as email/name/phone). Masking still happens before grouping/board generation and before any share-link exposure. A standalone /anonymization page remains as a fallback/Back target with the same behavior.
 - v1 keeps a single affinity board per workspace; regenerating grouping replaces the prior board. Multiple saved boards are deferred.
 - DOC/DOCX ingest is deferred; the slice implements pasted text and CSV parsing only (other types are rejected at the ingest endpoint).
 - Persistence in the current slice uses an in-memory repository behind a Prisma-shaped interface; it is a dev stand-in to be swapped for PrismaClient without changing call sites.
@@ -99,4 +99,12 @@ Product decisions confirmed during Phase 3 guided-flow revision
 - Data input supports a real file picker (.csv/.txt), pasted text, and a one-click sample. CSV is detected by extension or header+comma shape; otherwise input is treated as pasted text.
 - Opening an existing project resumes at the board view ("/workspaces/[id]" redirects to /board).
 - UX copy uses plain English: step labels are Add data / Privacy check / Set up grouping / Affinity board / Export & share / Activity ("ingest" is never user-facing).
-- Persistence stays in-memory for now (chosen as least future rework: the Prisma-shaped repo interface means the eventual DB swap touches one implementation file, not call sites). Trade-off: data is lost on dev-server restart; missing workspaces render a not-found page rather than a raw error.
+- Persistence stays in-memory for now (chosen as least future rework: the Prisma-shaped repo interface means the eventual DB swap touches one implementation file, not call sites). Trade-off: data is lost on dev-server restart; missing workspaces render a not-found page rather than a raw error. The in-memory store backfills any newly added fields onto the persisted dev singleton so hot-reloads don't crash with stale shapes.
+- Ingest rejects input that yields zero codes with a clear validation error; the CSV parser strips BOMs and auto-detects comma/semicolon/tab delimiters.
+
+Product decisions confirmed during Phase 5 (data model = codes)
+- The unit of analysis is a CODE, not a quote. The affinity board groups codes into themes. Each code optionally carries one supporting quote and one memo (extra context to interpret the code).
+- CSV columns (case-insensitive, with synonyms; first column is the code fallback): code -> code|label|category|theme|concept (required); quote -> quote|excerpt|evidence|verbatim (optional); memo -> memo|note|notes|comment|annotation (optional); participant -> participant|speaker|source|respondent (optional). Pasted/TXT = one code per line. Participant is optional (defaults to "Unassigned") and still drives participant-aware colors + the "mentioned by N participants" emphasis when present.
+- Anonymization masks across all three text fields (code, quote, memo); the privacy modal reports masked-code count + categories. Anonymous view-only redaction hides the whole code (code/quote/memo) when it was stored unmasked.
+- Export CSV columns: theme, mention_count, participant, code, quote, memo, rationale.
+- API 500s log server-side and, in non-production only, include a short error detail in the response to aid debugging.

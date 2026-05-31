@@ -1,5 +1,5 @@
 import type { AnonymizationService } from "@/domain/contracts/services";
-import type { AnonymizedQuote, ParsedQuote } from "@/domain/entities/types";
+import type { AnonymizedCode, ParsedCode } from "@/domain/entities/types";
 
 /**
  * Real (heuristic) anonymization for the slice.
@@ -13,26 +13,32 @@ import type { AnonymizedQuote, ParsedQuote } from "@/domain/entities/types";
  * swap this for a dedicated NER/PII model behind the same interface.
  */
 export class RealAnonymizationService implements AnonymizationService {
-  async maskQuotes(params: {
-    quotes: ParsedQuote[];
+  async maskCodes(params: {
+    codes: ParsedCode[];
     consentGranted: boolean;
     optOut: boolean;
-  }): Promise<AnonymizedQuote[]> {
+  }): Promise<AnonymizedCode[]> {
     const shouldMask = params.consentGranted && !params.optOut;
 
-    return params.quotes.map((quote) => {
+    return params.codes.map((item) => {
       if (!shouldMask) {
         return {
-          ...quote,
+          ...item,
           piiMasked: false,
           maskingNotes: ["Masking skipped: user opted out of anonymization."]
         };
       }
 
-      const { text, notes } = maskText(quote.text);
+      const code = maskText(item.code);
+      const quote = item.quote ? maskText(item.quote) : undefined;
+      const memo = item.memo ? maskText(item.memo) : undefined;
+      const notes = [...code.notes, ...(quote?.notes ?? []), ...(memo?.notes ?? [])];
+
       return {
-        ...quote,
-        text,
+        ...item,
+        code: code.text,
+        quote: quote?.text ?? item.quote,
+        memo: memo?.text ?? item.memo,
         piiMasked: true,
         maskingNotes: notes.length > 0 ? notes : ["No identifiers detected."]
       };
@@ -87,13 +93,15 @@ const nameStopwords = new Set([
   "However"
 ]);
 
-export function maskText(input: string): { text: string; notes: string[] } {
+export function maskText(input: string): { text: string; notes: string[]; categories: string[] } {
   let text = input;
   const notes: string[] = [];
+  const categories: string[] = [];
 
   for (const detector of detectors) {
     if (detector.pattern.test(text)) {
       notes.push(`Masked ${detector.label}.`);
+      categories.push(detector.label);
     }
     detector.pattern.lastIndex = 0;
     text = text.replace(detector.pattern, detector.replacement);
@@ -103,9 +111,10 @@ export function maskText(input: string): { text: string; notes: string[] } {
   text = nameMasked;
   if (count > 0) {
     notes.push(`Masked ${count} name-like token${count > 1 ? "s" : ""}.`);
+    categories.push("name");
   }
 
-  return { text, notes };
+  return { text, notes, categories };
 }
 
 function maskNames(input: string): { text: string; count: number } {

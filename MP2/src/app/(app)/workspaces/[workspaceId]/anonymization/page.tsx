@@ -16,7 +16,7 @@ export default async function AnonymizationPage({ params }: AnonymizationPagePro
     notFound();
   }
 
-  const quotes = repo.listQuotes(workspaceId);
+  const codes = repo.listCodes(workspaceId);
 
   return (
     <PageShell
@@ -24,7 +24,7 @@ export default async function AnonymizationPage({ params }: AnonymizationPagePro
       description="Decide how to handle personal information. Raw files were already discarded after extraction."
     >
       <WizardProgress current="anonymization" />
-      <ConsentClient workspaceId={workspaceId} quoteCount={quotes.length} />
+      <ConsentClient workspaceId={workspaceId} codeCount={codes.length} />
     </PageShell>
   );
 }

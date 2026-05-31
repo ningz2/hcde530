@@ -20,7 +20,8 @@ async function seedWorkspaceWithBoard(optOut = false): Promise<string> {
     workspaceId,
     submittedByUserId: "u1",
     sourceType: "CSV",
-    payload: 'participant,quote\nP1,"Email jane@acme.com"\nP2,"Pricing unclear"'
+    payload:
+      'code,quote,participant\nOnboarding,"Email jane@acme.com",P1\nPricing unclear,"Wants clearer tiers",P2'
   });
 
   applyAnonymization({ workspaceId, applyMasking: !optOut });
@@ -35,7 +36,7 @@ describe("export scaffolds", () => {
     const workspaceId = await seedWorkspaceWithBoard();
     const job = requestExport({ workspaceId, requestedByUserId: "u1", format: "CSV" });
     expect(job.status).toBe("READY");
-    expect(job.artifactPreview).toContain("theme,mention_count,participant,quote,rationale");
+    expect(job.artifactPreview).toContain("theme,mention_count,participant,code,quote,memo,rationale");
     expect(job.artifactPreview).toContain("Pricing unclear");
   });
 
@@ -81,17 +82,20 @@ describe("cross-mention emphasis fields", () => {
 describe("anonymous view-only redaction", () => {
   beforeEach(() => repo.reset());
 
-  it("hides unmasked quotes from anonymous viewers", async () => {
-    const workspaceId = await seedWorkspaceWithBoard(true); // opted out => raw retained in content
+  it("hides unmasked codes from anonymous viewers", async () => {
+    const workspaceId = await seedWorkspaceWithBoard(true); // opted out => raw retained
     const memberView = getBoardView(workspaceId);
     const anonView = getBoardView(workspaceId, { redactUnmasked: true });
 
-    const memberText = memberView.themes.flatMap((t) => t.assignments.map((a) => a.content)).join(" ");
-    const anonText = anonView.themes.flatMap((t) => t.assignments.map((a) => a.content)).join(" ");
+    const flatten = (view: typeof memberView) =>
+      view.themes
+        .flatMap((t) => t.assignments)
+        .flatMap((a) => [a.code, a.quote ?? "", a.memo ?? ""])
+        .join(" ");
 
-    expect(memberText).toContain("jane@acme.com");
-    expect(anonText).not.toContain("jane@acme.com");
-    expect(anonText).toContain("[hidden");
+    expect(flatten(memberView)).toContain("jane@acme.com");
+    expect(flatten(anonView)).not.toContain("jane@acme.com");
+    expect(flatten(anonView)).toContain("[hidden");
   });
 });
 

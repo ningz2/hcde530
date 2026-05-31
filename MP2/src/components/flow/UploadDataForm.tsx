@@ -1,16 +1,16 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { useRouter } from "next/navigation";
 import { apiPost, isError } from "@/lib/client/api";
+import { ConsentModal } from "@/components/flow/ConsentModal";
 
 type CreatedWorkspace = { workspace: { id: string } };
-type IngestResponse = { workspaceId: string; ingestion: { quoteCount: number } };
+type IngestResponse = { workspaceId: string; ingestion: { codeCount: number } };
 
-const sampleCsv = `participant,quote
-P1,"The setup wizard confused me, I emailed support@acme.com"
-P2,"Sarah from sales called me about pricing"
-P3,"Loading was slow but the dashboard is clear"`;
+const sampleCsv = `code,quote,memo,participant
+Onboarding friction,"The setup wizard confused me, I emailed support@acme.com",Mentioned during first run,P1
+Pricing confusion,"Sarah from sales called me about pricing",Wants clearer tiers,P2
+Performance,"Loading was slow but the dashboard is clear",,P3`;
 
 type Method = "file" | "paste";
 
@@ -26,7 +26,6 @@ export function UploadDataForm({
   mode: "new" | "existing";
   workspaceId?: string;
 }) {
-  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [method, setMethod] = useState<Method>("file");
@@ -34,6 +33,8 @@ export function UploadDataForm({
   const [filename, setFilename] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // When set, the privacy-check modal is shown for the just-created data.
+  const [consent, setConsent] = useState<{ workspaceId: string; codeCount: number } | null>(null);
 
   async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const file = event.target.files?.[0];
@@ -95,7 +96,11 @@ export function UploadDataForm({
       return;
     }
 
-    router.push(`/workspaces/${targetWorkspaceId}/anonymization`);
+    // Open the privacy-check modal as a follow-up step instead of navigating away.
+    setConsent({
+      workspaceId: targetWorkspaceId as string,
+      codeCount: ingest.data.ingestion.codeCount
+    });
   }
 
   return (
@@ -135,7 +140,8 @@ export function UploadDataForm({
             </span>
           )}
           <span style={{ fontSize: 12, color: "#6b7280" }}>
-            CSV with a participant and quote column works best. Plain .txt is one quote per line.
+            CSV with a <code>code</code> column works best; optional <code>quote</code>, <code>memo</code>,
+            and <code>participant</code> columns add context. Plain .txt is one code per line.
           </span>
         </div>
       ) : (
@@ -143,7 +149,7 @@ export function UploadDataForm({
           value={content}
           onChange={(e) => setContent(e.target.value)}
           rows={8}
-          placeholder={"Paste CSV rows or one quote per line…"}
+          placeholder={"Paste CSV rows (code,quote,memo,participant) or one code per line…"}
           style={{
             padding: "0.65rem",
             border: "1px solid #d1d5db",
@@ -165,6 +171,14 @@ export function UploadDataForm({
       <button type="submit" disabled={busy} style={primaryButton}>
         {busy ? "Saving…" : "Save & continue"}
       </button>
+
+      {consent && (
+        <ConsentModal
+          workspaceId={consent.workspaceId}
+          codeCount={consent.codeCount}
+          nextHref={`/workspaces/${consent.workspaceId}/strategy`}
+        />
+      )}
     </form>
   );
 }
