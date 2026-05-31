@@ -1,0 +1,86 @@
+You are assisting with MP2: an AI-powered affinity diagram generator web app for qualitative research data.
+
+Rules management preference
+- Maintain one canonical rules file at MP2/.cursorrules.
+- Do not split rules into MP2/.cursor/rules/*.mdc unless the user explicitly asks.
+- Keep this file requirements/principles-focused; do not add milestone checklists unless requested.
+
+Product intent
+- Primary users: UX researchers, product designers, PMs learning from user feedback, and students doing user research.
+- Core value: reduce tedious manual synthesis of qualitative data while preserving researcher control.
+- Grouping flexibility: users choose sorting direction and number of hierarchy levels.
+
+Stack and architecture defaults
+- Build with Next.js + TypeScript.
+- Use PostgreSQL + Prisma for persistent project/workspace data.
+- Use Supabase Auth + Realtime for identity, collaboration, and multi-user updates.
+- Deploy on Vercel by default.
+- Use Anthropic as the default LLM provider for coding/quote clustering and hierarchy generation.
+- Add background jobs only when needed for large-file processing latency.
+
+Data input requirements
+- Support both uploaded files and direct pasted text.
+- Accepted upload types: CSV, TXT, and DOC/DOCX.
+- v1 upload limit: 25MB per file.
+- Normalize all inputs into a unified quote/code item model before analysis.
+- Discard raw uploaded files after extraction and anonymization; persist only required structured/anonymized data.
+
+Privacy and anonymization requirements (non-negotiable)
+- Detect and mask personal data (e.g., names and identifiable info) automatically after upload.
+- Ask user permission before applying anonymization/masking.
+- Default anonymization state: ON (recommended), with explicit user opt-out allowed.
+- All downstream AI processing should use anonymized data whenever masking is enabled.
+- Never expose raw personal identifiers in generated grouping outputs unless user explicitly opts out.
+
+Collaboration and permissions
+- v1 must support full team workspaces with roles: owner, editor, viewer.
+- Enforce server-side authorization for every read/write action.
+- Log role-sensitive actions for auditability (invites, role changes, exports, deletes).
+- Authentication in v1 should support both:
+  - Email/password login
+  - Google and Microsoft SSO
+- Export permissions: CSV/PDF/FigJam exports are available to all roles (owner/editor/viewer).
+- Support anonymous external view-only link sharing in v1.
+- Anonymous links must not allow editing, inviting, role changes, or access to raw identifiable data.
+
+AI grouping workflow constraints
+- Do not require users to invent grouping strategies from scratch.
+- Collect research question(s), project goals, and optional project context first.
+- Generate suggested grouping strategies from that context.
+- Default output tone: balanced (practical + methodologically sound).
+- Allow adjustable hierarchy depth for themes/subthemes.
+- For each AI quote-to-theme assignment, include a brief one-sentence rationale for quick scanning.
+
+v1 feature priorities
+- Editable grouping output with drag/drop re-grouping.
+- Users can manually edit AI-generated theme names and descriptions.
+- Visualized affinity output.
+- Participant-aware visual encoding:
+  - Use distinct color assignment by participant/source.
+  - Keep participant colors stable and consistent across the whole project/workspace.
+  - If an insight appears across multiple participants, emphasize it with both:
+    - A participant-count badge (e.g., "mentioned by N participants")
+    - Stronger visual color density
+- Export options: CSV, PDF, and FigJam-friendly output.
+- Undo support is per individual user session.
+- Version snapshots are per individual user session (not a shared workspace timeline in v1).
+- Deletion behavior in v1 is soft-delete with restore for quotes/themes.
+- UI theming (including dark mode) is deferred until after v1.
+
+Engineering quality bar
+- Prefer clear, typed domain models over loosely structured JSON blobs.
+- Keep business logic in reusable server/domain modules, not UI components.
+- Add input validation and error handling for uploads, parsing, and AI calls.
+- For critical behaviors (permissions, anonymization, strategy generation), add tests.
+- Keep UX copy simple and researcher-friendly.
+
+When suggesting implementation
+- Prioritize privacy-by-default, collaboration safety, and transparent AI behavior.
+- Favor incremental, shippable v1 scope over speculative complexity.
+
+Assumptions introduced during Phase 1 frame scaffolding
+- Auth is mocked via request headers (x-mock-user-id, x-mock-user-email, x-mock-role, x-share-token) until Supabase Auth is wired; this is a dev placeholder, not the final mechanism.
+- API responses use a standardized envelope: { data } on success and { error: { code, message, details?, traceId? } } on failure.
+- Anonymous view-only share links are currently blocked from triggering exports in the scaffold. The rules allow exports for all named roles (owner/editor/viewer); whether anonymous link holders may export anonymized output is an open product decision to confirm.
+- Default theme hierarchy depth is 2 and grouping direction defaults to BOTTOM_UP at the workspace level.
+- v1 upload/paste content is capped in validation (200k chars for pasted text) pending the real 25MB file pipeline.

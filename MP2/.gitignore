@@ -1,0 +1,10 @@
+node_modules
+.next
+out
+build
+.env
+.env.*
+!.env.example
+prisma/migrations
+coverage
+.DS_Store

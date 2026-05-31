@@ -1,0 +1,31 @@
+{
+  "name": "mp2-affinity-diagram-generator",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:dev": "prisma migrate dev"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.58.0",
+    "@prisma/client": "^6.9.0",
+    "@supabase/supabase-js": "^2.49.8",
+    "next": "^16.0.1",
+    "react": "^19.1.0",
+    "react-dom": "^19.1.0",
+    "zod": "^3.24.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.17",
+    "@types/react": "^19.1.2",
+    "@types/react-dom": "^19.1.2",
+    "eslint": "^9.26.0",
+    "eslint-config-next": "^16.0.1",
+    "prisma": "^6.9.0",
+    "typescript": "^5.8.3"
+  }
+}
