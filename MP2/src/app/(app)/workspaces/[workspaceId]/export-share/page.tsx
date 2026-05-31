@@ -1,6 +1,6 @@
 import { ExportShareClient } from "@/components/flow/ExportShareClient";
-import { FlowStepper } from "@/components/flow/FlowStepper";
-import { toWorkspaceStepHref, workflowSteps } from "@/components/flow/workflow";
+import { StepFooter } from "@/components/flow/StepFooter";
+import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
 
 export const dynamic = "force-dynamic";
@@ -14,17 +14,12 @@ export default async function ExportSharePage({ params }: ExportSharePageProps) 
 
   return (
     <PageShell
-      title="Step 5: Export and share"
-      description="Exports (CSV/PDF/FigJam) are available to all workspace roles. Anonymous links remain strictly view-only."
+      title="Export & share"
+      description="Download CSV/PDF/FigJam (available to everyone on the project), or create an anonymous view-only link."
     >
-      <FlowStepper
-        currentHref={toWorkspaceStepHref(workspaceId, "export-share")}
-        steps={workflowSteps.map((step) => ({
-          label: step.label,
-          href: toWorkspaceStepHref(workspaceId, step.slug)
-        }))}
-      />
+      <WizardProgress current="export-share" />
       <ExportShareClient workspaceId={workspaceId} />
+      <StepFooter workspaceId={workspaceId} current="export-share" continueLabel="Continue to activity" />
     </PageShell>
   );
 }

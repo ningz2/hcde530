@@ -24,9 +24,12 @@ export const shareLinkCreateSchema = z.object({
 export const ingestSchema = z.object({
   sourceType: z.enum(["CSV", "TXT", "DOC", "DOCX", "PASTED_TEXT"]),
   content: z.string().min(1).max(200000).optional(),
-  filename: z.string().max(255).optional(),
-  consentAnonymization: z.boolean().default(true),
-  optOutAnonymization: z.boolean().default(false)
+  filename: z.string().max(255).optional()
+});
+
+// Consent is its own step after data is confirmed; masking defaults ON.
+export const anonymizationDecisionSchema = z.object({
+  applyMasking: z.boolean().default(true)
 });
 
 export const strategyCreateSchema = z.object({

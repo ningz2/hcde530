@@ -1,6 +1,6 @@
 import { BoardClient } from "@/components/flow/BoardClient";
-import { FlowStepper } from "@/components/flow/FlowStepper";
-import { toWorkspaceStepHref, workflowSteps } from "@/components/flow/workflow";
+import { StepFooter } from "@/components/flow/StepFooter";
+import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
 import { getBoardView } from "@/domain/services/boardView";
 
@@ -16,17 +16,12 @@ export default async function BoardPage({ params }: BoardPageProps) {
 
   return (
     <PageShell
-      title="Step 4: Affinity board"
-      description="AI-suggested themes with per-assignment rationale and participant-aware colors. Rename themes inline; undo is per session."
+      title="Affinity board"
+      description="Suggested themes with a one-line reason per quote and participant colors. Rename themes inline; undo is per session."
     >
-      <FlowStepper
-        currentHref={toWorkspaceStepHref(workspaceId, "board")}
-        steps={workflowSteps.map((step) => ({
-          label: step.label,
-          href: toWorkspaceStepHref(workspaceId, step.slug)
-        }))}
-      />
+      <WizardProgress current="board" />
       <BoardClient view={view} />
+      <StepFooter workspaceId={workspaceId} current="board" continueLabel="Continue to export & share" />
     </PageShell>
   );
 }

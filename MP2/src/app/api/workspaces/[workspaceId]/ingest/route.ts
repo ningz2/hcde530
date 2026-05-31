@@ -1,6 +1,6 @@
 import { createTraceId } from "@/lib/api/trace";
 import { authorizeWorkspaceAction } from "@/lib/api/guards";
-import { ingestAndStore } from "@/domain/services/normalization";
+import { extractAndStore } from "@/domain/services/normalization";
 import { ApiError } from "@/lib/errors/types";
 import { toErrorResponse, ok } from "@/lib/errors/http";
 import { parseJsonBody } from "@/lib/validation/request";
@@ -33,14 +33,12 @@ export async function POST(request: Request, { params }: RouteProps) {
       throw new ApiError("VALIDATION_ERROR", "Provide pasted text or file content to ingest.", 400);
     }
 
-    const result = await ingestAndStore({
+    const result = await extractAndStore({
       workspaceId,
       submittedByUserId: session.identity.userId,
       sourceType: input.sourceType,
       payload: input.content,
-      filename: input.filename,
-      consentGranted: input.consentAnonymization,
-      optOut: input.optOutAnonymization
+      filename: input.filename
     });
 
     return ok(
@@ -48,12 +46,11 @@ export async function POST(request: Request, { params }: RouteProps) {
         workspaceId,
         ingestion: {
           uploadId: result.uploadId,
-          status: result.anonymizationApplied ? "ANONYMIZED" : "STORED_WITHOUT_MASKING",
-          rawRetained: result.rawRetained,
-          anonymizationApplied: result.anonymizationApplied,
+          // Raw discarded after extraction; masking decision happens in the next step.
+          status: "EXTRACTED_PENDING_CONSENT",
+          rawRetained: false,
           quoteCount: result.quoteCount,
-          participants: result.participants,
-          maskingNotes: result.maskingNotes
+          participants: result.participants
         }
       },
       201

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { PageShell } from "@/components/layout/PageShell";
-import { CreateProjectForm } from "@/components/flow/CreateProjectForm";
+import { UploadDataForm } from "@/components/flow/UploadDataForm";
+import { WizardProgress } from "@/components/flow/WizardProgress";
 import { repo } from "@/lib/repo/store";
 
 export const dynamic = "force-dynamic";
@@ -10,30 +11,24 @@ export default function HomePage() {
 
   return (
     <PageShell
-      title="AI-Powered Affinity Diagram Generator"
-      description="Create a project to ingest qualitative data, anonymize it, and generate an editable affinity board."
+      title="Add your data"
+      description="Start by adding your research data. Upload a CSV, paste text, or try the sample. You'll choose privacy options in the next step."
     >
-      <div style={{ display: "grid", gap: "2rem" }}>
-        <section>
-          <h2 style={{ fontSize: "1.1rem" }}>New project</h2>
-          <CreateProjectForm />
-        </section>
+      <WizardProgress current="ingest" />
+      <UploadDataForm mode="new" />
 
-        <section>
-          <h2 style={{ fontSize: "1.1rem" }}>Open existing</h2>
-          {workspaces.length === 0 ? (
-            <p style={{ color: "#6b7280", margin: 0 }}>No projects yet.</p>
-          ) : (
-            <ul style={{ paddingLeft: "1.1rem", margin: 0 }}>
-              {workspaces.map((w) => (
-                <li key={w.id} style={{ marginBottom: "0.35rem" }}>
-                  <Link href={`/workspaces/${w.id}/ingest`}>{w.name}</Link>
-                </li>
-              ))}
-            </ul>
-          )}
+      {workspaces.length > 0 && (
+        <section style={{ marginTop: "2.5rem" }}>
+          <h2 style={{ fontSize: "1.05rem" }}>Open an existing project</h2>
+          <ul style={{ paddingLeft: "1.1rem", margin: 0 }}>
+            {workspaces.map((w) => (
+              <li key={w.id} style={{ marginBottom: "0.35rem" }}>
+                <Link href={`/workspaces/${w.id}/board`}>{w.name}</Link>
+              </li>
+            ))}
+          </ul>
         </section>
-      </div>
+      )}
     </PageShell>
   );
 }

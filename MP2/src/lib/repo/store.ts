@@ -238,6 +238,16 @@ export const repo = {
       .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },
 
+  updateUpload(
+    id: string,
+    patch: Partial<Pick<UploadRecord, "anonymizationState" | "anonymizationOptOut">>
+  ): void {
+    const existing = store.uploads.get(id);
+    if (existing) {
+      store.uploads.set(id, { ...existing, ...patch });
+    }
+  },
+
   /** Return existing participant for a source label or create one with a stable color. */
   ensureParticipant(params: {
     workspaceId: string;
@@ -284,6 +294,13 @@ export const repo = {
     return [...store.quotes.values()].filter(
       (q) => q.workspaceId === workspaceId && (includeDeleted || q.state === "ACTIVE")
     );
+  },
+
+  updateQuote(id: string, patch: Partial<Pick<QuoteRecord, "content" | "piiMasked" | "state">>): void {
+    const existing = store.quotes.get(id);
+    if (existing) {
+      store.quotes.set(id, { ...existing, ...patch });
+    }
   },
 
   createBoard(input: Omit<BoardRecord, "id" | "createdAt">): BoardRecord {

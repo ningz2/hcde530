@@ -1,7 +1,8 @@
-import { FlowStepper } from "@/components/flow/FlowStepper";
-import { IngestForm } from "@/components/flow/IngestForm";
-import { toWorkspaceStepHref, workflowSteps } from "@/components/flow/workflow";
+import { notFound } from "next/navigation";
+import { UploadDataForm } from "@/components/flow/UploadDataForm";
+import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
+import { repo } from "@/lib/repo/store";
 
 export const dynamic = "force-dynamic";
 
@@ -11,20 +12,17 @@ type IngestPageProps = {
 
 export default async function IngestPage({ params }: IngestPageProps) {
   const { workspaceId } = await params;
+  if (!repo.getWorkspace(workspaceId)) {
+    notFound();
+  }
 
   return (
     <PageShell
-      title="Step 1: Ingest qualitative data"
-      description="Paste text or upload a CSV. Personal data is masked by default before anything is stored, and raw input is discarded after extraction."
+      title="Add more data"
+      description="Add additional data to this project. You'll confirm privacy options next."
     >
-      <FlowStepper
-        currentHref={toWorkspaceStepHref(workspaceId, "ingest")}
-        steps={workflowSteps.map((step) => ({
-          label: step.label,
-          href: toWorkspaceStepHref(workspaceId, step.slug)
-        }))}
-      />
-      <IngestForm workspaceId={workspaceId} />
+      <WizardProgress current="ingest" />
+      <UploadDataForm mode="existing" workspaceId={workspaceId} />
     </PageShell>
   );
 }

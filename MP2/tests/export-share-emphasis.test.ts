@@ -1,6 +1,6 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { createHash } from "node:crypto";
-import { ingestAndStore } from "@/domain/services/normalization";
+import { applyAnonymization, extractAndStore } from "@/domain/services/normalization";
 import { generateBoard } from "@/domain/services/grouping";
 import { getBoardView } from "@/domain/services/boardView";
 import { requestExport } from "@/domain/services/export";
@@ -16,15 +16,14 @@ async function seedWorkspaceWithBoard(optOut = false): Promise<string> {
     createdByUserId: "u1"
   }).id;
 
-  await ingestAndStore({
+  await extractAndStore({
     workspaceId,
     submittedByUserId: "u1",
     sourceType: "CSV",
-    payload: 'participant,quote\nP1,"Email jane@acme.com"\nP2,"Pricing unclear"',
-    consentGranted: true,
-    optOut
+    payload: 'participant,quote\nP1,"Email jane@acme.com"\nP2,"Pricing unclear"'
   });
 
+  applyAnonymization({ workspaceId, applyMasking: !optOut });
   generateBoard({ workspaceId, boardName: "Board", hierarchyDepth: 2 });
   return workspaceId;
 }

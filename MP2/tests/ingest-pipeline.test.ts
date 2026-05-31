@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from "vitest";
-import { ingestAndStore } from "@/domain/services/normalization";
+import { applyAnonymization, extractAndStore } from "@/domain/services/normalization";
 import { ingestSchema } from "@/lib/validation/workspace";
 import { repo } from "@/lib/repo/store";
 
-describe("ingest pipeline (normalization + privacy + raw discard)", () => {
+describe("ingest pipeline (extract -> consent -> mask)", () => {
   let workspaceId: string;
 
   beforeEach(() => {
@@ -16,77 +16,89 @@ describe("ingest pipeline (normalization + privacy + raw discard)", () => {
     }).id;
   });
 
-  it("normalizes CSV, masks PII by default, and never retains raw source", async () => {
-    const result = await ingestAndStore({
+  it("extracts and stores quotes unmasked and pending consent, never retaining raw", async () => {
+    const result = await extractAndStore({
       workspaceId,
       submittedByUserId: "u1",
       sourceType: "CSV",
       payload: 'participant,quote\nP1,"Email me at jane@acme.com"\nP2,"Pricing was unclear"',
-      filename: "feedback.csv",
-      consentGranted: true,
-      optOut: false
+      filename: "feedback.csv"
     });
 
     expect(result.quoteCount).toBe(2);
-    expect(result.rawRetained).toBe(false);
-    expect(result.anonymizationApplied).toBe(true);
 
     const quotes = repo.listQuotes(workspaceId);
-    expect(quotes.every((q) => !q.content.includes("jane@acme.com"))).toBe(true);
+    expect(quotes.every((q) => !q.piiMasked)).toBe(true);
+    // Raw identifiers are still present until consent is applied.
+    expect(quotes.some((q) => q.content.includes("jane@acme.com"))).toBe(true);
 
-    // Raw discard must be represented in the activity log and upload record.
     const upload = repo.listUploads(workspaceId)[0];
     expect(upload.rawRetained).toBe(false);
-    expect(upload.anonymizationState).toBe("APPLIED");
+    expect(upload.anonymizationState).toBe("PENDING_CONSENT");
     expect(repo.listActivity(workspaceId).some((a) => a.action === "raw_source_discarded")).toBe(true);
   });
 
+  it("masks stored quotes when consent applies masking", async () => {
+    await extractAndStore({
+      workspaceId,
+      submittedByUserId: "u1",
+      sourceType: "PASTED_TEXT",
+      payload: "Contact jane@acme.com about this"
+    });
+
+    const result = applyAnonymization({ workspaceId, applyMasking: true });
+    expect(result.applied).toBe(true);
+    expect(result.maskedCount).toBe(1);
+
+    const quotes = repo.listQuotes(workspaceId);
+    expect(quotes[0].piiMasked).toBe(true);
+    expect(quotes[0].content).not.toContain("jane@acme.com");
+    expect(repo.listUploads(workspaceId)[0].anonymizationState).toBe("APPLIED");
+  });
+
+  it("keeps raw identifiers when the user skips masking", async () => {
+    await extractAndStore({
+      workspaceId,
+      submittedByUserId: "u1",
+      sourceType: "PASTED_TEXT",
+      payload: "Contact jane@acme.com about this"
+    });
+
+    const result = applyAnonymization({ workspaceId, applyMasking: false });
+    expect(result.applied).toBe(false);
+
+    const quotes = repo.listQuotes(workspaceId);
+    expect(quotes[0].piiMasked).toBe(false);
+    expect(quotes[0].content).toContain("jane@acme.com");
+    expect(repo.listUploads(workspaceId)[0].anonymizationState).toBe("SKIPPED");
+  });
+
   it("assigns stable participant colors across re-ingestion", async () => {
-    await ingestAndStore({
+    await extractAndStore({
       workspaceId,
       submittedByUserId: "u1",
       sourceType: "CSV",
-      payload: "participant,quote\nP1,First comment",
-      consentGranted: true,
-      optOut: false
+      payload: "participant,quote\nP1,First comment"
     });
     const firstToken = repo.listParticipants(workspaceId).find((p) => p.sourceLabel === "P1")?.colorToken;
 
-    await ingestAndStore({
+    await extractAndStore({
       workspaceId,
       submittedByUserId: "u1",
       sourceType: "CSV",
-      payload: "participant,quote\nP1,Second comment",
-      consentGranted: true,
-      optOut: false
+      payload: "participant,quote\nP1,Second comment"
     });
     const participants = repo.listParticipants(workspaceId).filter((p) => p.sourceLabel === "P1");
 
     expect(participants).toHaveLength(1);
     expect(participants[0].colorToken).toBe(firstToken);
   });
-
-  it("preserves raw identifiers when the user opts out", async () => {
-    await ingestAndStore({
-      workspaceId,
-      submittedByUserId: "u1",
-      sourceType: "PASTED_TEXT",
-      payload: "Contact jane@acme.com about this",
-      consentGranted: true,
-      optOut: true
-    });
-
-    const quotes = repo.listQuotes(workspaceId);
-    expect(quotes[0].piiMasked).toBe(false);
-    expect(quotes[0].content).toContain("jane@acme.com");
-  });
 });
 
 describe("ingestSchema validation", () => {
-  it("applies privacy defaults (consent ON, opt-out OFF)", () => {
+  it("accepts a supported source type with content", () => {
     const parsed = ingestSchema.parse({ sourceType: "PASTED_TEXT", content: "hi" });
-    expect(parsed.consentAnonymization).toBe(true);
-    expect(parsed.optOutAnonymization).toBe(false);
+    expect(parsed.sourceType).toBe("PASTED_TEXT");
   });
 
   it("rejects an unknown source type", () => {

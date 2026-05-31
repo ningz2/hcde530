@@ -1,5 +1,5 @@
-import { FlowStepper } from "@/components/flow/FlowStepper";
-import { toWorkspaceStepHref, workflowSteps } from "@/components/flow/workflow";
+import Link from "next/link";
+import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
 import { repo } from "@/lib/repo/store";
 
@@ -16,16 +16,10 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
 
   return (
     <PageShell
-      title="Step 6: Session history"
-      description="Per-user session snapshots. Each board edit captures a revertible snapshot; undo is available from the board."
+      title="Activity"
+      description="Your session's edit history. Each board edit captures a revertible snapshot; undo is available from the board."
     >
-      <FlowStepper
-        currentHref={toWorkspaceStepHref(workspaceId, "history")}
-        steps={workflowSteps.map((step) => ({
-          label: step.label,
-          href: toWorkspaceStepHref(workspaceId, step.slug)
-        }))}
-      />
+      <WizardProgress current="history" />
 
       {snapshots.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No edits recorded in this session yet.</p>
@@ -41,6 +35,12 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
           ))}
         </ol>
       )}
+
+      <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #eef0f3" }}>
+        <Link href={`/workspaces/${workspaceId}/board`} style={{ fontSize: 14, color: "#6b7280" }}>
+          ← Back to the board
+        </Link>
+      </div>
     </PageShell>
   );
 }

@@ -6,5 +6,5 @@ type WorkspaceIndexPageProps = {
 
 export default async function WorkspaceIndexPage({ params }: WorkspaceIndexPageProps) {
   const { workspaceId } = await params;
-  redirect(`/workspaces/${workspaceId}/ingest`);
+  redirect(`/workspaces/${workspaceId}/board`);
 }

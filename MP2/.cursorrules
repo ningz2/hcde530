@@ -86,9 +86,17 @@ Assumptions introduced during Phase 1 frame scaffolding
 - v1 upload/paste content is capped in validation (200k chars for pasted text) pending the real 25MB file pipeline.
 
 Product decisions confirmed during Phase 2 vertical slice
-- Anonymization consent is captured inline at the ingest step (default ON, single opt-out checkbox), and applied before any quote is persisted. The dedicated "anonymization" page is a read-only review/summary of what was masked, not a second consent gate.
+- Anonymization consent is its own step AFTER data upload is confirmed (revised Phase 3): the upload step extracts and stores quotes unmasked (state PENDING_CONSENT) and discards the raw source; the "Privacy check" step then applies masking (default ON, with an explicit opt-out to keep data as-is). Masking still happens before grouping/board generation and before any share-link exposure.
 - v1 keeps a single affinity board per workspace; regenerating grouping replaces the prior board. Multiple saved boards are deferred.
 - DOC/DOCX ingest is deferred; the slice implements pasted text and CSV parsing only (other types are rejected at the ingest endpoint).
 - Persistence in the current slice uses an in-memory repository behind a Prisma-shaped interface; it is a dev stand-in to be swapped for PrismaClient without changing call sites.
 - Anonymous view-only access redacts any quote that was stored unmasked (opt-out uploads), so raw identifiers are never exposed via a share link. Anonymous links remain blocked from exports; exports stay available to all named roles (owner/editor/viewer).
 - Export formats: CSV is generated synchronously (inline artifact); PDF and FigJam are enqueued contracts for a future async worker.
+
+Product decisions confirmed during Phase 3 guided-flow revision
+- The flow is a guided wizard: users complete one step at a time. The progress indicator is passive (non-clickable) so people cannot jump ahead.
+- The landing page ("/") is the data-input step. Creating a project happens implicitly when the user saves their first data (project name optional, defaults to "Untitled project"), which avoids stale-workspace errors during ingest.
+- Data input supports a real file picker (.csv/.txt), pasted text, and a one-click sample. CSV is detected by extension or header+comma shape; otherwise input is treated as pasted text.
+- Opening an existing project resumes at the board view ("/workspaces/[id]" redirects to /board).
+- UX copy uses plain English: step labels are Add data / Privacy check / Set up grouping / Affinity board / Export & share / Activity ("ingest" is never user-facing).
+- Persistence stays in-memory for now (chosen as least future rework: the Prisma-shaped repo interface means the eventual DB swap touches one implementation file, not call sites). Trade-off: data is lost on dev-server restart; missing workspaces render a not-found page rather than a raw error.

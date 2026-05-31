@@ -1,63 +1,54 @@
 import { colorTokenForIndex } from "@/lib/color/palette";
 import { repo, type UploadInputType } from "@/lib/repo/store";
-import { RealAnonymizationService } from "@/domain/services/anonymization";
+import { maskText } from "@/domain/services/anonymization";
 import { RealParserService } from "@/domain/services/parser";
 
 const parser = new RealParserService();
-const anonymizer = new RealAnonymizationService();
 
-export type IngestResult = {
+export type ExtractResult = {
   uploadId: string;
   quoteCount: number;
-  anonymizationApplied: boolean;
-  rawRetained: false;
   participants: { anonymizedLabel: string; colorToken: string }[];
+};
+
+export type AnonymizationResult = {
+  totalQuotes: number;
+  maskedCount: number;
+  applied: boolean;
   maskingNotes: string[];
 };
 
 /**
- * Mock-to-real ingestion pipeline:
- *   parse -> anonymize (consent-aware) -> normalize to quote items -> persist
+ * Step 1 of the pipeline: parse the raw input and store normalized quote items.
  *
- * Raw source discard policy is represented explicitly: the raw `payload` is only
- * used transiently for extraction and is never persisted. We record the discard
- * on the upload (`rawRetained: false`) and in the activity log.
+ * Masking is deliberately NOT applied here — consent is a separate step. The raw
+ * source payload is used only transiently for extraction and is never persisted
+ * (`rawRetained: false`); only normalized quote items are stored, initially in a
+ * PENDING_CONSENT state.
  */
-export async function ingestAndStore(params: {
+export async function extractAndStore(params: {
   workspaceId: string;
   submittedByUserId: string;
   sourceType: UploadInputType;
   payload: string;
   filename?: string;
-  consentGranted: boolean;
-  optOut: boolean;
-}): Promise<IngestResult> {
+}): Promise<ExtractResult> {
   const parsed = await parser.parse({
     sourceType: params.sourceType,
     payload: params.payload,
     filename: params.filename
   });
 
-  const anonymized = await anonymizer.maskQuotes({
-    quotes: parsed,
-    consentGranted: params.consentGranted,
-    optOut: params.optOut
-  });
-
-  const anonymizationApplied = params.consentGranted && !params.optOut;
-
   const upload = repo.createUpload({
     workspaceId: params.workspaceId,
     submittedByUserId: params.submittedByUserId,
     sourceType: params.sourceType,
     originalFilename: params.filename,
-    anonymizationState: anonymizationApplied ? "APPLIED" : "SKIPPED",
-    anonymizationOptOut: params.optOut,
+    anonymizationState: "PENDING_CONSENT",
+    anonymizationOptOut: false,
     rawRetained: false
   });
 
-  // Raw discard: the transient payload is intentionally not persisted anywhere.
-  // Only normalized + (optionally) anonymized quote items below are stored.
   repo.logActivity({
     workspaceId: params.workspaceId,
     actorUserId: params.submittedByUserId,
@@ -67,9 +58,8 @@ export async function ingestAndStore(params: {
   });
 
   const participantTokens = new Map<string, string>();
-  const allMaskingNotes = new Set<string>();
 
-  for (const quote of anonymized) {
+  for (const quote of parsed) {
     const participant = repo.ensureParticipant({
       workspaceId: params.workspaceId,
       sourceLabel: quote.participantLabel,
@@ -78,7 +68,6 @@ export async function ingestAndStore(params: {
     });
 
     participantTokens.set(participant.anonymizedLabel, participant.colorToken);
-    quote.maskingNotes.forEach((note) => allMaskingNotes.add(note));
 
     repo.createQuote({
       workspaceId: params.workspaceId,
@@ -86,20 +75,66 @@ export async function ingestAndStore(params: {
       participantId: participant.id,
       content: quote.text,
       sourceRef: quote.sourceRef,
-      piiMasked: quote.piiMasked,
+      piiMasked: false,
       state: "ACTIVE"
     });
   }
 
   return {
     uploadId: upload.id,
-    quoteCount: anonymized.length,
-    anonymizationApplied,
-    rawRetained: false,
+    quoteCount: parsed.length,
     participants: [...participantTokens.entries()].map(([anonymizedLabel, colorToken]) => ({
       anonymizedLabel,
       colorToken
-    })),
-    maskingNotes: [...allMaskingNotes]
+    }))
+  };
+}
+
+/**
+ * Step 2 of the pipeline: apply the user's anonymization decision to the stored
+ * quotes. Default product behavior is masking ON; the user may explicitly skip.
+ */
+export function applyAnonymization(params: {
+  workspaceId: string;
+  applyMasking: boolean;
+}): AnonymizationResult {
+  const quotes = repo.listQuotes(params.workspaceId);
+  const notes = new Set<string>();
+  let maskedCount = 0;
+
+  if (params.applyMasking) {
+    for (const quote of quotes) {
+      if (quote.piiMasked) {
+        maskedCount += 1;
+        continue;
+      }
+      const { text, notes: quoteNotes } = maskText(quote.content);
+      repo.updateQuote(quote.id, { content: text, piiMasked: true });
+      quoteNotes.forEach((note) => notes.add(note));
+      maskedCount += 1;
+    }
+  } else {
+    notes.add("Masking skipped: quotes stored as provided.");
+  }
+
+  for (const upload of repo.listUploads(params.workspaceId)) {
+    repo.updateUpload(upload.id, {
+      anonymizationState: params.applyMasking ? "APPLIED" : "SKIPPED",
+      anonymizationOptOut: !params.applyMasking
+    });
+  }
+
+  repo.logActivity({
+    workspaceId: params.workspaceId,
+    action: params.applyMasking ? "anonymization_applied" : "anonymization_skipped",
+    targetType: "Workspace",
+    targetId: params.workspaceId
+  });
+
+  return {
+    totalQuotes: quotes.length,
+    maskedCount: params.applyMasking ? maskedCount : 0,
+    applied: params.applyMasking,
+    maskingNotes: [...notes]
   };
 }
