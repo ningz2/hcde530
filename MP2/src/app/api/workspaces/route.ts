@@ -31,6 +31,7 @@ export async function POST(request: Request) {
     const workspace = repo.createWorkspace({
       name: input.name,
       researchQuestion: input.researchQuestion,
+      researchQuestions: input.researchQuestions,
       projectGoal: input.projectGoal,
       projectContext: input.projectContext,
       defaultHierarchyDepth: input.defaultHierarchyDepth,

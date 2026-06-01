@@ -1,5 +1,5 @@
 import { hexForToken } from "@/lib/color/palette";
-import { repo } from "@/lib/repo/store";
+import { repo, type HierarchyMode, type ThemeRecord } from "@/lib/repo/store";
 
 export type BoardAssignmentView = {
   codeId: string;
@@ -23,12 +23,35 @@ export type BoardThemeView = {
   assignments: BoardAssignmentView[];
 };
 
+/** A node in the affinity hierarchy (research question / theme / group). */
+export type BoardNode = {
+  id: string;
+  title: string;
+  description?: string;
+  level: number;
+  mentionCount: number;
+  colorDensity: number;
+  /** Codes live on leaf nodes (groups). */
+  assignments: BoardAssignmentView[];
+  children: BoardNode[];
+};
+
 export type BoardView = {
   workspaceId: string;
   workspaceName?: string;
-  board?: { id: string; name: string; hierarchyDepth: number };
+  board?: {
+    id: string;
+    name: string;
+    hierarchyDepth: number;
+    hierarchyMode: HierarchyMode;
+    groupGranularity: number;
+    themeGranularity: number;
+  };
   codeCount: number;
+  /** Flat list of leaf groups (with codes) — used by export and simple views. */
   themes: BoardThemeView[];
+  /** Full hierarchy for the canvas (roots -> ... -> leaf groups). */
+  tree: BoardNode[];
 };
 
 const REDACTED = "[hidden: contains unmasked identifiers]";
@@ -53,18 +76,19 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
       workspaceId,
       workspaceName: workspace?.name,
       codeCount: codes.length,
-      themes: []
+      themes: [],
+      tree: []
     };
   }
 
-  const themes = repo.listThemes(board.id).map((theme) => {
-    const assignments = repo
-      .listAssignmentsByTheme(theme.id)
+  const allThemes = repo.listThemes(board.id);
+
+  const assignmentsFor = (themeId: string): BoardAssignmentView[] =>
+    repo
+      .listAssignmentsByTheme(themeId)
       .map((assignment): BoardAssignmentView | undefined => {
         const item = codeById.get(assignment.codeId);
-        if (!item) {
-          return undefined;
-        }
+        if (!item) return undefined;
         const participant = participants.get(item.participantId);
         const hideRaw = redactUnmasked && !item.piiMasked;
         return {
@@ -80,21 +104,51 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
       })
       .filter((a): a is BoardAssignmentView => a !== undefined);
 
-    return {
+  const childrenOf = new Map<string | undefined, ThemeRecord[]>();
+  for (const theme of allThemes) {
+    const list = childrenOf.get(theme.parentThemeId) ?? [];
+    list.push(theme);
+    childrenOf.set(theme.parentThemeId, list);
+  }
+
+  const buildNode = (theme: ThemeRecord): BoardNode => ({
+    id: theme.id,
+    title: theme.title,
+    description: theme.description,
+    level: theme.level,
+    mentionCount: theme.participantCount,
+    colorDensity: theme.mentionDensity,
+    assignments: assignmentsFor(theme.id),
+    children: (childrenOf.get(theme.id) ?? []).map(buildNode)
+  });
+
+  const tree = (childrenOf.get(undefined) ?? []).map(buildNode);
+
+  // Leaf groups (themes that actually carry codes) for export/back-compat.
+  const themes: BoardThemeView[] = allThemes
+    .map((theme) => ({
       id: theme.id,
       title: theme.title,
       description: theme.description,
       mentionCount: theme.participantCount,
       colorDensity: theme.mentionDensity,
-      assignments
-    };
-  });
+      assignments: assignmentsFor(theme.id)
+    }))
+    .filter((t) => t.assignments.length > 0);
 
   return {
     workspaceId,
     workspaceName: workspace?.name,
-    board: { id: board.id, name: board.name, hierarchyDepth: board.hierarchyDepth },
+    board: {
+      id: board.id,
+      name: board.name,
+      hierarchyDepth: board.hierarchyDepth,
+      hierarchyMode: board.hierarchyMode,
+      groupGranularity: board.groupGranularity,
+      themeGranularity: board.themeGranularity
+    },
     codeCount: codes.length,
-    themes
+    themes,
+    tree
   };
 }

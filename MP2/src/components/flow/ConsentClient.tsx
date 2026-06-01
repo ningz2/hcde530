@@ -23,7 +23,7 @@ export function ConsentClient({ workspaceId, codeCount }: { workspaceId: string;
       setError(result.error.message);
       return;
     }
-    router.push(`/workspaces/${workspaceId}/strategy`);
+    router.push(`/workspaces/${workspaceId}/board`);
   }
 
   if (codeCount === 0) {

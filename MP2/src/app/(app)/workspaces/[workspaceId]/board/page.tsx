@@ -4,6 +4,7 @@ import { ExportShareClient } from "@/components/flow/ExportShareClient";
 import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
 import { getBoardView } from "@/domain/services/boardView";
+import { generateBoard } from "@/domain/services/grouping";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +14,14 @@ type BoardPageProps = {
 
 export default async function BoardPage({ params }: BoardPageProps) {
   const { workspaceId } = await params;
-  const view = getBoardView(workspaceId);
+  let view = getBoardView(workspaceId);
+
+  // Skip the old strategy step: auto-generate a default grouping the first time
+  // someone lands on the board with codes but no board yet.
+  if (!view.board && view.codeCount > 0) {
+    await generateBoard({ workspaceId, boardName: "Affinity board", hierarchyMode: "GROUPS" });
+    view = getBoardView(workspaceId);
+  }
 
   return (
     <PageShell

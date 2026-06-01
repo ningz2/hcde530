@@ -23,15 +23,22 @@ The flow is a guided wizard; the **Affinity board is the final destination**.
 Export & share and Activity are optional, accessed from the board.
 
 1. **Add data** (`/`) — upload one or more CSV/TXT files, paste text, or use the
-   sample. You can select multiple files (e.g. one per participant); a file with
-   no `participant` column is grouped under its file name.
+   sample. You can select one file (all participants) or multiple files (one
+   participant each). You can also add **research questions** one by one.
 2. **Privacy check** — a modal pops up after upload to mask PII (default ON) and
-   shows what was masked.
-3. **Set up grouping** — pick grouping direction / hierarchy depth (scaffold).
-4. **Affinity board** — codes shown as colored square sticky notes grouped into
-   themes (note shows the code only; quote/memo stay in the backend). Rename
-   themes inline, undo per session. Export & share and a link to Activity appear
-   below the board.
+   shows what was masked. Continuing takes you straight to the board (the old
+   "set up grouping" step is gone).
+3. **Affinity board** — opens with a **default AI grouping** already generated.
+   It's a Miro/FigJam-style canvas: **scroll to zoom**, **drag the background to
+   pan**. Codes are colored square sticky notes (code only); each group has an
+   AI-suggested name you can rename inline.
+   - **Right control panel:** choose the hierarchy (Groups → Themes → By
+     research questions) and drag the **granularity sliders** (group level and
+     theme level), then click **Apply** to regenerate.
+   - Export & share and a link to Activity appear below the board.
+
+> AI naming uses Anthropic when `ANTHROPIC_API_KEY` is set; without a key it
+> falls back to keyword-derived names. Clustering itself is deterministic.
 
 ## Useful direct links (replace WORKSPACE_ID)
 

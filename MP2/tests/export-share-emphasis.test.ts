@@ -25,7 +25,7 @@ async function seedWorkspaceWithBoard(optOut = false): Promise<string> {
   });
 
   applyAnonymization({ workspaceId, applyMasking: !optOut });
-  generateBoard({ workspaceId, boardName: "Board", hierarchyDepth: 2 });
+  await generateBoard({ workspaceId, boardName: "Board" });
   return workspaceId;
 }
 

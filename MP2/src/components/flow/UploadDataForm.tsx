@@ -50,6 +50,7 @@ export function UploadDataForm({
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
+  const [researchQuestions, setResearchQuestions] = useState<string[]>([""]);
   const [method, setMethod] = useState<Method>("file");
   const [fileMode, setFileMode] = useState<FileMode>("single");
   const [files, setFiles] = useState<LoadedFile[]>([]);
@@ -93,6 +94,18 @@ export function UploadDataForm({
     setContent(sampleCsv);
   }
 
+  function updateRq(index: number, value: string) {
+    setResearchQuestions((prev) => prev.map((q, i) => (i === index ? value : q)));
+  }
+
+  function addRq() {
+    setResearchQuestions((prev) => [...prev, ""]);
+  }
+
+  function removeRq(index: number) {
+    setResearchQuestions((prev) => (prev.length <= 1 ? [""] : prev.filter((_, i) => i !== index)));
+  }
+
   function detectSourceType(text: string, filename?: string): "CSV" | "TXT" | "PASTED_TEXT" {
     const lower = (filename ?? "").toLowerCase();
     if (lower.endsWith(".csv")) return "CSV";
@@ -124,8 +137,10 @@ export function UploadDataForm({
     let targetWorkspaceId = workspaceId;
 
     if (mode === "new") {
+      const cleanedRqs = researchQuestions.map((q) => q.trim()).filter(Boolean);
       const created = await apiPost<CreatedWorkspace>("/api/workspaces", {
-        name: name.trim() || "Untitled project"
+        name: name.trim() || "Untitled project",
+        ...(cleanedRqs.length > 0 ? { researchQuestions: cleanedRqs } : {})
       });
       if (isError(created)) {
         setBusy(false);
@@ -167,15 +182,47 @@ export function UploadDataForm({
   return (
     <form onSubmit={onSubmit} style={{ display: "grid", gap: "1rem", maxWidth: 620 }}>
       {mode === "new" && (
-        <label style={{ display: "grid", gap: "0.25rem" }}>
-          <span>Project name</span>
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder="Onboarding research Q2"
-            style={inputStyle}
-          />
-        </label>
+        <>
+          <label style={{ display: "grid", gap: "0.25rem" }}>
+            <span>Project name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="Onboarding research Q2"
+              style={inputStyle}
+            />
+          </label>
+
+          <div style={{ display: "grid", gap: "0.4rem" }}>
+            <span>Research questions (optional)</span>
+            <span style={{ fontSize: 12, color: "#6b7280", marginTop: "-0.2rem" }}>
+              Add the questions guiding your study. They help the assistant name themes and can organize
+              the board by research question.
+            </span>
+            {researchQuestions.map((q, i) => (
+              <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
+                <span style={{ color: "#9ca3af", fontSize: 13, width: 22 }}>RQ{i + 1}</span>
+                <input
+                  value={q}
+                  onChange={(e) => updateRq(i, e.target.value)}
+                  placeholder="e.g. What makes onboarding confusing for new users?"
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <button
+                  type="button"
+                  onClick={() => removeRq(i)}
+                  style={{ border: "none", background: "none", color: "#b91c1c", cursor: "pointer", fontSize: 13 }}
+                  aria-label={`Remove research question ${i + 1}`}
+                >
+                  remove
+                </button>
+              </div>
+            ))}
+            <button type="button" onClick={addRq} style={{ ...secondaryButton, justifySelf: "start" }}>
+              + Add research question
+            </button>
+          </div>
+        </>
       )}
 
       <div style={{ display: "flex", gap: "1rem" }}>
@@ -294,7 +341,7 @@ export function UploadDataForm({
         <ConsentModal
           workspaceId={consent.workspaceId}
           codeCount={consent.codeCount}
-          nextHref={`/workspaces/${consent.workspaceId}/strategy`}
+          nextHref={`/workspaces/${consent.workspaceId}/board`}
         />
       )}
     </form>

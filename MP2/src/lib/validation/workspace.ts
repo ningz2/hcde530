@@ -3,6 +3,7 @@ import { z } from "zod";
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(120),
   researchQuestion: z.string().max(2000).optional(),
+  researchQuestions: z.array(z.string().min(1).max(2000)).max(20).optional(),
   projectGoal: z.string().max(2000).optional(),
   projectContext: z.string().max(5000).optional(),
   defaultHierarchyDepth: z.number().int().min(1).max(5).default(2),
@@ -44,7 +45,11 @@ export const strategyCreateSchema = z.object({
 export const groupingRunSchema = z.object({
   strategyId: z.string().optional(),
   boardName: z.string().min(1).max(120).default("Affinity board"),
-  hierarchyDepth: z.number().int().min(1).max(5).default(2)
+  hierarchyDepth: z.number().int().min(1).max(5).default(2),
+  hierarchyMode: z.enum(["GROUPS", "THEMES", "RQS"]).default("GROUPS"),
+  // Granularity sliders: target counts for leaf groups and mid-level themes.
+  groupGranularity: z.number().int().min(1).max(12).optional(),
+  themeGranularity: z.number().int().min(1).max(8).optional()
 });
 
 export const themeUpdateSchema = z.object({

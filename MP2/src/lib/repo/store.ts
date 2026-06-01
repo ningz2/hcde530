@@ -16,10 +16,14 @@ export type EntityState = "ACTIVE" | "SOFT_DELETED";
 export type SnapshotAction = "CREATE" | "UPDATE" | "DELETE" | "RESTORE" | "MOVE";
 export type SnapshotEntityType = "CODE" | "THEME" | "BOARD";
 
+export type HierarchyMode = "GROUPS" | "THEMES" | "RQS";
+
 export type WorkspaceRecord = {
   id: string;
   name: string;
   researchQuestion?: string;
+  /** Research questions collected at the add-data step; drives the "by RQ" hierarchy. */
+  researchQuestions?: string[];
   projectGoal?: string;
   projectContext?: string;
   defaultHierarchyDepth: number;
@@ -72,6 +76,12 @@ export type BoardRecord = {
   workspaceId: string;
   name: string;
   hierarchyDepth: number;
+  /** How the board is organized: flat groups, groups-in-themes, or themes-by-RQ. */
+  hierarchyMode: HierarchyMode;
+  /** Target number of leaf groups (granularity slider, group level). */
+  groupGranularity: number;
+  /** Target number of mid-level themes (granularity slider, theme level). */
+  themeGranularity: number;
   createdAt: string;
 };
 

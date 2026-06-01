@@ -15,14 +15,16 @@ export async function POST(request: Request, { params }: RouteProps) {
 
   try {
     const { workspaceId } = await params;
-    const { session, workspace } = await authorizeWorkspaceAction(workspaceId, "board.edit");
+    const { session } = await authorizeWorkspaceAction(workspaceId, "board.edit");
 
     const input = await parseJsonBody(request, groupingRunSchema);
 
-    const result = generateBoard({
+    const result = await generateBoard({
       workspaceId,
       boardName: input.boardName,
-      hierarchyDepth: input.hierarchyDepth || workspace.defaultHierarchyDepth
+      hierarchyMode: input.hierarchyMode,
+      groupGranularity: input.groupGranularity,
+      themeGranularity: input.themeGranularity
     });
 
     repo.logActivity({

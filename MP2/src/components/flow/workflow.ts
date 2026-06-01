@@ -4,7 +4,6 @@
 export const workflowSteps = [
   { slug: "ingest", label: "Add data" },
   { slug: "anonymization", label: "Privacy check" },
-  { slug: "strategy", label: "Set up grouping" },
   { slug: "board", label: "Affinity board" }
 ] as const;
 
