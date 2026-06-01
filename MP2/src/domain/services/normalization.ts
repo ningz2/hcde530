@@ -132,8 +132,9 @@ export function applyAnonymization(params: {
       if (item.piiMasked) {
         continue;
       }
-      // Mask across all three text fields: code, quote, and memo.
-      const maskedCode = maskText(item.code);
+      // Mask direct identifiers across all fields; skip name detection on the
+      // code label (it caused false positives like "Customer" -> [NAME]).
+      const maskedCode = maskText(item.code, { maskNames: false });
       const maskedQuote = item.quote ? maskText(item.quote) : undefined;
       const maskedMemo = item.memo ? maskText(item.memo) : undefined;
 

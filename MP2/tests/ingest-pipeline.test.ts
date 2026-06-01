@@ -60,6 +60,36 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
     expect(repo.listUploads(workspaceId)[0].anonymizationState).toBe("APPLIED");
   });
 
+  it("does not name-mask the code label, only direct identifiers", async () => {
+    await extractAndStore({
+      workspaceId,
+      submittedByUserId: "u1",
+      sourceType: "PASTED_TEXT",
+      payload: "Customer Support frustration\nUser Trust concerns"
+    });
+
+    applyAnonymization({ workspaceId, applyMasking: true });
+
+    const codes = repo.listCodes(workspaceId).map((c) => c.code);
+    expect(codes).toContain("Customer Support frustration");
+    expect(codes).toContain("User Trust concerns");
+    expect(codes.join(" ")).not.toContain("[NAME]");
+  });
+
+  it("strips leading underscores from codes", async () => {
+    const result = await extractAndStore({
+      workspaceId,
+      submittedByUserId: "u1",
+      sourceType: "PASTED_TEXT",
+      payload: "_onboarding friction\n__pricing unclear"
+    });
+
+    expect(result.codeCount).toBe(2);
+    const codes = repo.listCodes(workspaceId).map((c) => c.code);
+    expect(codes).toContain("onboarding friction");
+    expect(codes).toContain("pricing unclear");
+  });
+
   it("parses semicolon-delimited CSV with a BOM", async () => {
     const result = await extractAndStore({
       workspaceId,

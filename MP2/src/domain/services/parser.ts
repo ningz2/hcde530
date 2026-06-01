@@ -30,10 +30,15 @@ export class RealParserService implements ParserService {
 export const UNASSIGNED_PARTICIPANT = "Unassigned";
 const UNASSIGNED = UNASSIGNED_PARTICIPANT;
 
+/** Tidy a raw code label: drop leading underscores/whitespace so we show the phrase. */
+function cleanCode(raw: string): string {
+  return raw.replace(/^[\s_]+/, "").trim();
+}
+
 function parseLines(payload: string, sourceRef: string): ParsedCode[] {
   return payload
     .split(/\r?\n/)
-    .map((line) => line.trim())
+    .map((line) => cleanCode(line))
     .filter(Boolean)
     .map((code) => ({
       sourceRef,
@@ -68,7 +73,7 @@ function parseCsv(payload: string, filename?: string): ParsedCode[] {
 
   const codes: ParsedCode[] = [];
   dataRows.forEach((row) => {
-    const code = (row[cIdx] ?? "").trim();
+    const code = cleanCode(row[cIdx] ?? "");
     if (!code) {
       return;
     }

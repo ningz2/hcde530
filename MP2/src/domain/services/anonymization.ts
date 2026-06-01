@@ -29,7 +29,10 @@ export class RealAnonymizationService implements AnonymizationService {
         };
       }
 
-      const code = maskText(item.code);
+      // Codes are short analytic labels the researcher wrote, not free text, so we
+      // do NOT name-mask them (it produced false positives like "Customer" -> [NAME]).
+      // Direct identifiers (email/phone/url/handle) are still masked everywhere.
+      const code = maskText(item.code, { maskNames: false });
       const quote = item.quote ? maskText(item.quote) : undefined;
       const memo = item.memo ? maskText(item.memo) : undefined;
       const notes = [...code.notes, ...(quote?.notes ?? []), ...(memo?.notes ?? [])];
@@ -93,7 +96,10 @@ const nameStopwords = new Set([
   "However"
 ]);
 
-export function maskText(input: string): { text: string; notes: string[]; categories: string[] } {
+export function maskText(
+  input: string,
+  options?: { maskNames?: boolean }
+): { text: string; notes: string[]; categories: string[] } {
   let text = input;
   const notes: string[] = [];
   const categories: string[] = [];
@@ -107,11 +113,15 @@ export function maskText(input: string): { text: string; notes: string[]; catego
     text = text.replace(detector.pattern, detector.replacement);
   }
 
-  const { text: nameMasked, count } = maskNames(text);
-  text = nameMasked;
-  if (count > 0) {
-    notes.push(`Masked ${count} name-like token${count > 1 ? "s" : ""}.`);
-    categories.push("name");
+  // Name detection is opt-out: skipped for short code labels to avoid masking
+  // ordinary capitalized words. Applied to free-text quote/memo by default.
+  if (options?.maskNames !== false) {
+    const { text: nameMasked, count } = maskNames(text);
+    text = nameMasked;
+    if (count > 0) {
+      notes.push(`Masked ${count} name-like token${count > 1 ? "s" : ""}.`);
+      categories.push("name");
+    }
   }
 
   return { text, notes, categories };
