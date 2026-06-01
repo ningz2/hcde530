@@ -249,6 +249,38 @@ export const repo = {
     return store.workspaces.get(id);
   },
 
+  /** Hard-delete a workspace and every record that belongs to it. */
+  deleteWorkspace(id: string): boolean {
+    if (!store.workspaces.has(id)) {
+      return false;
+    }
+
+    // Boards/themes/assignments are cleaned up via the existing helper.
+    this.clearBoards(id);
+
+    for (const [key, record] of store.uploads) {
+      if (record.workspaceId === id) store.uploads.delete(key);
+    }
+    for (const [key, record] of store.participants) {
+      if (record.workspaceId === id) store.participants.delete(key);
+    }
+    for (const [key, record] of store.codes) {
+      if (record.workspaceId === id) store.codes.delete(key);
+    }
+    for (const [key, record] of store.shareLinks) {
+      if (record.workspaceId === id) store.shareLinks.delete(key);
+    }
+    for (const [key, record] of store.exportJobs) {
+      if (record.workspaceId === id) store.exportJobs.delete(key);
+    }
+    for (const key of [...store.snapshotStacks.keys()]) {
+      if (key.startsWith(`${id}:`)) store.snapshotStacks.delete(key);
+    }
+    store.activityLogs = store.activityLogs.filter((a) => a.workspaceId !== id);
+    store.workspaces.delete(id);
+    return true;
+  },
+
   listWorkspaces(): WorkspaceRecord[] {
     return [...store.workspaces.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   },

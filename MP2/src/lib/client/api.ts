@@ -34,7 +34,10 @@ export async function apiPatch<T>(path: string, body: unknown): Promise<ApiResul
   return (await res.json()) as ApiResult<T>;
 }
 
-export async function apiSend<T>(path: string, method: "POST" | "PATCH" = "POST"): Promise<ApiResult<T>> {
+export async function apiSend<T>(
+  path: string,
+  method: "POST" | "PATCH" | "DELETE" = "POST"
+): Promise<ApiResult<T>> {
   const res = await fetch(path, { method, headers: devHeaders });
   return (await res.json()) as ApiResult<T>;
 }

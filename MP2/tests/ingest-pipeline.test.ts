@@ -138,6 +138,37 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
   });
 });
 
+describe("deleteWorkspace", () => {
+  it("removes the workspace and its codes", async () => {
+    repo.reset();
+    const ws = repo.createWorkspace({
+      name: "Doomed",
+      defaultHierarchyDepth: 2,
+      groupingDirection: "BOTTOM_UP",
+      createdByUserId: "u1"
+    }).id;
+    await extractAndStore({
+      workspaceId: ws,
+      submittedByUserId: "u1",
+      sourceType: "PASTED_TEXT",
+      payload: "First code\nSecond code"
+    });
+    expect(repo.listCodes(ws)).toHaveLength(2);
+
+    const deleted = repo.deleteWorkspace(ws);
+
+    expect(deleted).toBe(true);
+    expect(repo.getWorkspace(ws)).toBeUndefined();
+    expect(repo.listCodes(ws)).toHaveLength(0);
+    expect(repo.listWorkspaces().some((w) => w.id === ws)).toBe(false);
+  });
+
+  it("returns false for an unknown workspace", () => {
+    repo.reset();
+    expect(repo.deleteWorkspace("does-not-exist")).toBe(false);
+  });
+});
+
 describe("ingestSchema validation", () => {
   it("accepts a supported source type with content", () => {
     const parsed = ingestSchema.parse({ sourceType: "PASTED_TEXT", content: "hi" });

@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { apiPost, isError } from "@/lib/client/api";
 import { ConsentModal } from "@/components/flow/ConsentModal";
 
@@ -13,14 +14,31 @@ Pricing confusion,"Sarah from sales called me about pricing",Wants clearer tiers
 Performance,"Loading was slow but the dashboard is clear",,P3`;
 
 type Method = "file" | "paste";
-type LoadedFile = { name: string; content: string };
+type FileMode = "single" | "multiple";
+type LoadedFile = { name: string; content: string; codeCount: number };
+
+/**
+ * Estimate the number of codes in a file by counting data rows. CSV/TSV files
+ * have a header row that is not a code, so it's excluded. This is a pre-submit
+ * preview; the authoritative count comes back from the ingest API.
+ */
+function countCodeRows(content: string, filename?: string): number {
+  const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
+  const lower = (filename ?? "").toLowerCase();
+  const looksCsv = lower.endsWith(".csv") || /^[^\n]*[,;\t][^\n]*\n/.test(content);
+  return looksCsv ? Math.max(lines.length - 1, 0) : lines.length;
+}
 
 /**
  * Step 1 data input. In "new" mode it creates the project then stores the data;
- * in "existing" mode it adds data to the current project. Supports uploading
- * several files at once (e.g. one file per participant) — each file is ingested
- * separately so a file with no participant column is grouped under its file name.
- * After saving it moves to the privacy-check step.
+ * in "existing" mode it adds data to the current project.
+ *
+ * Two file workflows:
+ *  - "single": one CSV/TSV holding every participant (a participant column, e.g.
+ *    tab-separated). Participants are read from that column.
+ *  - "multiple": several files, one participant each. A file without a
+ *    participant column is grouped under its file name.
+ * Each file is ingested separately. After saving it moves to the privacy step.
  */
 export function UploadDataForm({
   mode,
@@ -29,9 +47,11 @@ export function UploadDataForm({
   mode: "new" | "existing";
   workspaceId?: string;
 }) {
+  const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [method, setMethod] = useState<Method>("file");
+  const [fileMode, setFileMode] = useState<FileMode>("single");
   const [files, setFiles] = useState<LoadedFile[]>([]);
   const [content, setContent] = useState("");
   const [busy, setBusy] = useState(false);
@@ -42,19 +62,30 @@ export function UploadDataForm({
   async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
     const picked = Array.from(event.target.files ?? []);
     if (picked.length === 0) return;
-    const loaded = await Promise.all(
-      picked.map(async (file) => ({ name: file.name, content: await file.text() }))
+    const loaded: LoadedFile[] = await Promise.all(
+      picked.map(async (file) => {
+        const text = await file.text();
+        return { name: file.name, content: text, codeCount: countCodeRows(text, file.name) };
+      })
     );
-    // Append to any previously loaded files (de-duped by name).
     setFiles((prev) => {
-      const byName = new Map(prev.map((f) => [f.name, f]));
+      // Single mode keeps exactly one file; multiple mode appends (de-duped by name).
+      const base = fileMode === "single" ? [] : prev;
+      const byName = new Map(base.map((f) => [f.name, f]));
       loaded.forEach((f) => byName.set(f.name, f));
-      return [...byName.values()];
+      const next = [...byName.values()];
+      return fileMode === "single" ? next.slice(-1) : next;
     });
   }
 
   function removeFile(fileName: string) {
     setFiles((prev) => prev.filter((f) => f.name !== fileName));
+  }
+
+  function changeFileMode(next: FileMode) {
+    setFileMode(next);
+    setFiles([]);
+    if (fileInputRef.current) fileInputRef.current.value = "";
   }
 
   function useSample() {
@@ -125,6 +156,10 @@ export function UploadDataForm({
 
     setBusy(false);
 
+    // Re-render server components (incl. the root layout) so the sidebar shows
+    // the newly created project right away. Client state (this modal) persists.
+    router.refresh();
+
     // Open the privacy-check modal as a follow-up step instead of navigating away.
     setConsent({ workspaceId: targetWorkspaceId as string, codeCount: totalCodes });
   }
@@ -153,23 +188,57 @@ export function UploadDataForm({
       </div>
 
       {method === "file" ? (
-        <div style={{ display: "grid", gap: "0.4rem" }}>
+        <div style={{ display: "grid", gap: "0.6rem" }}>
+          <div style={{ display: "grid", gap: "0.4rem" }}>
+            <label style={fileModeRow}>
+              <input
+                type="radio"
+                checked={fileMode === "single"}
+                onChange={() => changeFileMode("single")}
+              />
+              <span>
+                <strong>One file, all participants</strong>
+                <br />
+                <span style={{ color: "#6b7280", fontSize: 13 }}>
+                  A single CSV/TSV with a <code>participant</code> column (e.g. tab-separated).
+                </span>
+              </span>
+            </label>
+            <label style={fileModeRow}>
+              <input
+                type="radio"
+                checked={fileMode === "multiple"}
+                onChange={() => changeFileMode("multiple")}
+              />
+              <span>
+                <strong>Multiple files, one participant each</strong>
+                <br />
+                <span style={{ color: "#6b7280", fontSize: 13 }}>
+                  Upload several files; each file is grouped under its file name.
+                </span>
+              </span>
+            </label>
+          </div>
+
           <input
             ref={fileInputRef}
             type="file"
-            accept=".csv,.txt,text/csv,text/plain"
-            multiple
+            accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+            multiple={fileMode === "multiple"}
             onChange={onFileChange}
           />
+
           {files.length > 0 && (
-            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.25rem" }}>
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.3rem" }}>
               {files.map((f) => (
                 <li
                   key={f.name}
                   style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: 13, color: "#374151" }}
                 >
                   <strong>{f.name}</strong>
-                  <span style={{ color: "#9ca3af" }}>({f.content.length} chars)</span>
+                  <span style={{ color: "#2563eb", fontWeight: 600 }}>
+                    {f.codeCount} code{f.codeCount === 1 ? "" : "s"}
+                  </span>
                   <button
                     type="button"
                     onClick={() => removeFile(f.name)}
@@ -179,13 +248,18 @@ export function UploadDataForm({
                   </button>
                 </li>
               ))}
+              {files.length > 1 && (
+                <li style={{ fontSize: 13, color: "#111827", fontWeight: 600 }}>
+                  Total: {files.reduce((sum, f) => sum + f.codeCount, 0)} codes across {files.length} files
+                </li>
+              )}
             </ul>
           )}
+
           <span style={{ fontSize: 12, color: "#6b7280" }}>
-            Upload one or more files (e.g. one per participant). CSV with a <code>code</code> column works
-            best; optional <code>quote</code>, <code>memo</code>, and <code>participant</code> columns add
-            context. Plain .txt is one code per line. Files without a <code>participant</code> column are
-            grouped under the file name.
+            CSV with a <code>code</code> column works best; optional <code>quote</code>, <code>memo</code>,
+            and <code>participant</code> columns add context. Plain .txt is one code per line. Code counts
+            above are estimated from the number of rows.
           </span>
         </div>
       ) : (
@@ -232,6 +306,15 @@ const inputStyle: React.CSSProperties = {
   border: "1px solid #d1d5db",
   borderRadius: 8,
   fontSize: 14
+};
+
+const fileModeRow: React.CSSProperties = {
+  display: "flex",
+  gap: "0.6rem",
+  alignItems: "flex-start",
+  border: "1px solid #e5e7eb",
+  borderRadius: 8,
+  padding: "0.6rem 0.7rem"
 };
 
 const primaryButton: React.CSSProperties = {

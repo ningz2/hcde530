@@ -4,6 +4,7 @@ import type { WorkspaceRole } from "@/domain/entities/types";
 export type Action =
   | "workspace.read"
   | "workspace.write"
+  | "workspace.delete"
   | "board.edit"
   | "share.manage"
   | "export.create"
@@ -12,6 +13,7 @@ export type Action =
 const matrix: Record<Action, WorkspaceRole[]> = {
   "workspace.read": ["OWNER", "EDITOR", "VIEWER"],
   "workspace.write": ["OWNER", "EDITOR"],
+  "workspace.delete": ["OWNER"],
   "board.edit": ["OWNER", "EDITOR"],
   "share.manage": ["OWNER", "EDITOR"],
   "export.create": ["OWNER", "EDITOR", "VIEWER"],
