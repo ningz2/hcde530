@@ -82,145 +82,141 @@ export function BoardClient({ view }: { view: BoardView }) {
   const hasBoard = Boolean(view.board) && view.tree.length > 0;
 
   return (
-    <div style={{ display: "flex", gap: "1rem", alignItems: "stretch", flexWrap: "wrap" }}>
-      {/* Canvas */}
-      <div style={{ flex: "1 1 520px", minWidth: 320, display: "grid", gap: "0.5rem" }}>
-        <div style={toolbar}>
-          <span style={{ color: "#6b7280", fontSize: 13 }}>
-            {view.codeCount} codes{view.board ? ` · ${view.themes.length} groups` : ""}
-          </span>
-          <div style={{ display: "flex", gap: "0.35rem", alignItems: "center", marginLeft: "auto" }}>
-            <button type="button" onClick={() => setScale((s) => Math.max(0.4, s - 0.15))} style={zoomButton}>
-              −
-            </button>
-            <span style={{ fontSize: 12, color: "#6b7280", width: 38, textAlign: "center" }}>
-              {Math.round(scale * 100)}%
-            </span>
-            <button type="button" onClick={() => setScale((s) => Math.min(2, s + 0.15))} style={zoomButton}>
-              +
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setScale(1);
-                setPan({ x: 0, y: 0 });
-              }}
-              style={zoomButton}
-              title="Reset view"
-            >
-              ⟳
-            </button>
-            <button type="button" onClick={undo} disabled={busy} style={zoomButton} title="Undo last change">
-              Undo
-            </button>
-          </div>
-        </div>
-
-        {error && <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>}
-
-        <div
-          style={canvasViewport}
-          onWheel={onWheel}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={endDrag}
-          onMouseLeave={endDrag}
-        >
-          {hasBoard ? (
-            <div
-              style={{
-                transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
-                transformOrigin: "top left",
-                display: "flex",
-                flexWrap: "wrap",
-                gap: "1rem",
-                alignItems: "flex-start",
-                padding: "1rem"
-              }}
-            >
-              {view.tree.map((node) => (
-                <NodeBox
-                  key={node.id}
-                  workspaceId={view.workspaceId}
-                  node={node}
-                  onSaved={() => router.refresh()}
-                />
-              ))}
-            </div>
-          ) : (
-            <p style={{ color: "#6b7280", padding: "1rem" }}>
-              {view.codeCount === 0
-                ? "No codes yet. Add data to generate an affinity board."
-                : "Preparing your board…"}
-            </p>
-          )}
-        </div>
-        <span style={{ fontSize: 12, color: "#9ca3af" }}>
-          Scroll to zoom · drag the background to pan.
+    <div style={{ display: "grid", gap: "0.5rem", width: "100%" }}>
+      <div style={toolbar}>
+        <span style={{ color: "#6b7280", fontSize: 13 }}>
+          {view.codeCount} codes{view.board ? ` · ${view.themes.length} groups` : ""}
         </span>
+        <div style={{ display: "flex", gap: "0.35rem", alignItems: "center", marginLeft: "auto" }}>
+          <button type="button" onClick={() => setScale((s) => Math.max(0.4, s - 0.15))} style={zoomButton}>
+            −
+          </button>
+          <span style={{ fontSize: 12, color: "#6b7280", width: 38, textAlign: "center" }}>
+            {Math.round(scale * 100)}%
+          </span>
+          <button type="button" onClick={() => setScale((s) => Math.min(2, s + 0.15))} style={zoomButton}>
+            +
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setScale(1);
+              setPan({ x: 0, y: 0 });
+            }}
+            style={zoomButton}
+            title="Reset view"
+          >
+            ⟳
+          </button>
+          <button type="button" onClick={undo} disabled={busy} style={zoomButton} title="Undo last change">
+            Undo
+          </button>
+        </div>
       </div>
 
-      {/* Right control panel */}
-      <aside style={panel}>
-        <h3 style={{ margin: 0, fontSize: "1rem" }}>Organize the board</h3>
+      {error && <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>}
 
-        <div>
-          <span style={panelLabel}>Hierarchy</span>
-          <div style={gradientRow}>
-            {HIERARCHY_OPTIONS.map((opt) => (
-              <button
-                key={opt.mode}
-                type="button"
-                onClick={() => setMode(opt.mode)}
-                style={{
-                  ...gradientOption,
-                  ...(mode === opt.mode ? gradientOptionActive : {})
-                }}
-              >
-                {opt.label}
-              </button>
+      <div
+        style={canvasViewport}
+        onWheel={onWheel}
+        onMouseDown={onMouseDown}
+        onMouseMove={onMouseMove}
+        onMouseUp={endDrag}
+        onMouseLeave={endDrag}
+      >
+        {hasBoard ? (
+          <div
+            style={{
+              transform: `translate(${pan.x}px, ${pan.y}px) scale(${scale})`,
+              transformOrigin: "top left",
+              display: "flex",
+              flexWrap: "nowrap",
+              gap: "1.25rem",
+              alignItems: "flex-start",
+              padding: "1.25rem"
+            }}
+          >
+            {view.tree.map((node) => (
+              <div key={node.id} style={{ flex: "0 0 auto" }}>
+                <NodeBox workspaceId={view.workspaceId} node={node} onSaved={() => router.refresh()} />
+              </div>
             ))}
           </div>
-          <span style={panelHint}>{HIERARCHY_OPTIONS.find((o) => o.mode === mode)?.hint}</span>
-        </div>
+        ) : (
+          <p style={{ color: "#6b7280", padding: "1rem" }}>
+            {view.codeCount === 0
+              ? "No codes yet. Add data to generate an affinity board."
+              : "Preparing your board…"}
+          </p>
+        )}
 
-        <div>
-          <span style={panelLabel}>
-            Group granularity: <strong>{Math.min(groupGranularity, maxGroups)}</strong> groups
-          </span>
-          <input
-            type="range"
-            min={2}
-            max={maxGroups}
-            value={Math.min(groupGranularity, maxGroups)}
-            onChange={(e) => setGroupGranularity(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-          <span style={panelHint}>Fewer = broader groups · more = finer groups.</span>
-        </div>
+        {/* "Organize the board" panel floats inside the canvas, snapped right. */}
+        <aside
+          style={panel}
+          onMouseDown={(e) => e.stopPropagation()}
+          onWheel={(e) => e.stopPropagation()}
+        >
+          <h3 style={{ margin: 0, fontSize: "1rem" }}>Organize the board</h3>
 
-        <div style={{ opacity: mode === "GROUPS" ? 0.45 : 1 }}>
-          <span style={panelLabel}>
-            Theme granularity: <strong>{themeGranularity}</strong> themes
-          </span>
-          <input
-            type="range"
-            min={1}
-            max={8}
-            value={themeGranularity}
-            disabled={mode === "GROUPS"}
-            onChange={(e) => setThemeGranularity(Number(e.target.value))}
-            style={{ width: "100%" }}
-          />
-          <span style={panelHint}>
-            {mode === "GROUPS" ? "Switch to Themes or RQs to use this." : "How many mid-level themes to create."}
-          </span>
-        </div>
+          <div>
+            <span style={panelLabel}>Hierarchy</span>
+            <div style={gradientRow}>
+              {HIERARCHY_OPTIONS.map((opt) => (
+                <button
+                  key={opt.mode}
+                  type="button"
+                  onClick={() => setMode(opt.mode)}
+                  style={{
+                    ...gradientOption,
+                    ...(mode === opt.mode ? gradientOptionActive : {})
+                  }}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <span style={panelHint}>{HIERARCHY_OPTIONS.find((o) => o.mode === mode)?.hint}</span>
+          </div>
 
-        <button type="button" onClick={regenerate} disabled={busy} style={applyButton}>
-          {busy ? "Generating…" : "Apply"}
-        </button>
-      </aside>
+          <div>
+            <span style={panelLabel}>
+              Group granularity: <strong>{Math.min(groupGranularity, maxGroups)}</strong> groups
+            </span>
+            <input
+              type="range"
+              min={2}
+              max={maxGroups}
+              value={Math.min(groupGranularity, maxGroups)}
+              onChange={(e) => setGroupGranularity(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+            <span style={panelHint}>Fewer = broader groups · more = finer groups.</span>
+          </div>
+
+          <div style={{ opacity: mode === "GROUPS" ? 0.45 : 1 }}>
+            <span style={panelLabel}>
+              Theme granularity: <strong>{themeGranularity}</strong> themes
+            </span>
+            <input
+              type="range"
+              min={1}
+              max={8}
+              value={themeGranularity}
+              disabled={mode === "GROUPS"}
+              onChange={(e) => setThemeGranularity(Number(e.target.value))}
+              style={{ width: "100%" }}
+            />
+            <span style={panelHint}>
+              {mode === "GROUPS" ? "Switch to Themes or RQs to use this." : "How many mid-level themes to create."}
+            </span>
+          </div>
+
+          <button type="button" onClick={regenerate} disabled={busy} style={applyButton}>
+            {busy ? "Generating…" : "Apply"}
+          </button>
+        </aside>
+      </div>
+      <span style={{ fontSize: 12, color: "#9ca3af" }}>Scroll to zoom · drag the background to pan.</span>
     </div>
   );
 }
@@ -324,7 +320,9 @@ const zoomButton: React.CSSProperties = {
 
 const canvasViewport: React.CSSProperties = {
   position: "relative",
-  height: 600,
+  width: "100%",
+  height: "calc(100vh - 230px)",
+  minHeight: 480,
   overflow: "hidden",
   background: "#f8fafc",
   backgroundImage: "radial-gradient(#e2e8f0 1px, transparent 1px)",
@@ -425,16 +423,21 @@ const miniButton: React.CSSProperties = {
 };
 
 const panel: React.CSSProperties = {
-  flex: "0 0 250px",
-  alignSelf: "flex-start",
-  position: "sticky",
-  top: "1rem",
+  position: "absolute",
+  top: 12,
+  right: 12,
+  width: 250,
+  maxHeight: "calc(100% - 24px)",
+  overflowY: "auto",
   display: "grid",
   gap: "1rem",
-  background: "#fff",
+  background: "rgba(255,255,255,0.97)",
   border: "1px solid #e5e7eb",
   borderRadius: 12,
-  padding: "1rem"
+  padding: "1rem",
+  boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+  zIndex: 5,
+  cursor: "default"
 };
 
 const panelLabel: React.CSSProperties = {

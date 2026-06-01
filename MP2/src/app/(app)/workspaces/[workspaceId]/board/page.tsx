@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { BoardClient } from "@/components/flow/BoardClient";
-import { ExportShareClient } from "@/components/flow/ExportShareClient";
+import { ExportShareMenu } from "@/components/flow/ExportShareMenu";
 import { WizardProgress } from "@/components/flow/WizardProgress";
-import { PageShell } from "@/components/layout/PageShell";
 import { getBoardView } from "@/domain/services/boardView";
 import { generateBoard } from "@/domain/services/grouping";
 
@@ -24,36 +23,33 @@ export default async function BoardPage({ params }: BoardPageProps) {
   }
 
   return (
-    <PageShell
-      title="Affinity board"
-      description="Your codes grouped into themes as colored sticky notes (colored by participant). Rename themes inline; undo is per session."
-    >
-      <WizardProgress current="board" />
+    <main style={{ width: "100%", padding: "1.5rem 1.5rem 2rem" }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
+        <header>
+          <Link href="/" style={{ textDecoration: "none", color: "#1d4ed8", fontSize: 14 }}>
+            MP2 Affinity App
+          </Link>
+          <h1 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.6rem" }}>Affinity board</h1>
+          <p style={{ margin: 0, color: "#4b5563", fontSize: 14 }}>
+            Codes grouped into colored sticky notes (colored by participant). Rename inline; undo is per
+            session. Use the panel on the right to change the hierarchy and granularity.
+          </p>
+        </header>
+
+        <ExportShareMenu workspaceId={workspaceId} />
+      </div>
+
+      <div style={{ margin: "1rem 0" }}>
+        <WizardProgress current="board" />
+      </div>
+
       <BoardClient view={view} />
 
-      <section style={panel}>
-        <h2 style={panelTitle}>Export & share (optional)</h2>
-        <p style={panelHint}>
-          Download your board or create an anonymous view-only link. This is optional — your board is
-          the finished result.
-        </p>
-        <ExportShareClient workspaceId={workspaceId} />
-      </section>
-
-      <p style={{ marginTop: "1.25rem", fontSize: 13 }}>
+      <p style={{ marginTop: "1rem", fontSize: 13 }}>
         <Link href={`/workspaces/${workspaceId}/history`} style={{ color: "#6b7280" }}>
           View activity &amp; undo history →
         </Link>
       </p>
-    </PageShell>
+    </main>
   );
 }
-
-const panel: React.CSSProperties = {
-  marginTop: "2rem",
-  paddingTop: "1.25rem",
-  borderTop: "1px solid #eef0f3"
-};
-
-const panelTitle: React.CSSProperties = { margin: "0 0 0.25rem", fontSize: "1.05rem" };
-const panelHint: React.CSSProperties = { margin: "0 0 0.75rem", color: "#6b7280", fontSize: 13 };
