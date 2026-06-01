@@ -47,6 +47,12 @@ export function densityBackgroundFromRatio(hex: string, ratio: number): string {
   return `rgba(${r}, ${g}, ${b}, ${alpha.toFixed(2)})`;
 }
 
+/** Translucent fill derived from a participant hex, for sticky-note backgrounds. */
+export function tintForHex(hex: string, alpha: number): string {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 function hexToRgb(hex: string): { r: number; g: number; b: number } {
   const normalized = hex.replace("#", "");
   return {

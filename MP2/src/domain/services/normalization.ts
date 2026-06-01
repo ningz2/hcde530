@@ -1,7 +1,7 @@
 import { colorTokenForIndex } from "@/lib/color/palette";
 import { repo, type UploadInputType } from "@/lib/repo/store";
 import { maskText } from "@/domain/services/anonymization";
-import { RealParserService } from "@/domain/services/parser";
+import { RealParserService, UNASSIGNED_PARTICIPANT } from "@/domain/services/parser";
 
 const parser = new RealParserService();
 
@@ -63,11 +63,21 @@ export async function extractAndStore(params: {
 
   const participantTokens = new Map<string, string>();
 
+  // When a file has no participant column, treat the whole file as one
+  // participant using the file name. This lets users upload one file per
+  // participant and still get participant-aware colors and emphasis.
+  const fileParticipant = participantFromFilename(params.filename);
+
   for (const item of parsed) {
+    const label =
+      item.participantLabel && item.participantLabel !== UNASSIGNED_PARTICIPANT
+        ? item.participantLabel
+        : fileParticipant ?? item.participantLabel;
+
     const participant = repo.ensureParticipant({
       workspaceId: params.workspaceId,
-      sourceLabel: item.participantLabel,
-      anonymizedLabel: item.participantLabel,
+      sourceLabel: label,
+      anonymizedLabel: label,
       assignColorToken: (existingCount) => colorTokenForIndex(existingCount)
     });
 
@@ -94,6 +104,14 @@ export async function extractAndStore(params: {
       colorToken
     }))
   };
+}
+
+/** Derive a participant label from a file name (strip path + extension). */
+function participantFromFilename(filename?: string): string | undefined {
+  if (!filename) return undefined;
+  const base = filename.split(/[\\/]/).pop() ?? filename;
+  const withoutExt = base.replace(/\.[^.]+$/, "").trim();
+  return withoutExt || undefined;
 }
 
 /**

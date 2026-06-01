@@ -13,11 +13,14 @@ Pricing confusion,"Sarah from sales called me about pricing",Wants clearer tiers
 Performance,"Loading was slow but the dashboard is clear",,P3`;
 
 type Method = "file" | "paste";
+type LoadedFile = { name: string; content: string };
 
 /**
  * Step 1 data input. In "new" mode it creates the project then stores the data;
- * in "existing" mode it adds data to the current project. After saving it moves
- * to the privacy-check step (anonymization is a separate, later decision).
+ * in "existing" mode it adds data to the current project. Supports uploading
+ * several files at once (e.g. one file per participant) — each file is ingested
+ * separately so a file with no participant column is grouped under its file name.
+ * After saving it moves to the privacy-check step.
  */
 export function UploadDataForm({
   mode,
@@ -29,40 +32,58 @@ export function UploadDataForm({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [name, setName] = useState("");
   const [method, setMethod] = useState<Method>("file");
+  const [files, setFiles] = useState<LoadedFile[]>([]);
   const [content, setContent] = useState("");
-  const [filename, setFilename] = useState<string | undefined>(undefined);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // When set, the privacy-check modal is shown for the just-created data.
   const [consent, setConsent] = useState<{ workspaceId: string; codeCount: number } | null>(null);
 
   async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    const text = await file.text();
-    setContent(text);
-    setFilename(file.name);
+    const picked = Array.from(event.target.files ?? []);
+    if (picked.length === 0) return;
+    const loaded = await Promise.all(
+      picked.map(async (file) => ({ name: file.name, content: await file.text() }))
+    );
+    // Append to any previously loaded files (de-duped by name).
+    setFiles((prev) => {
+      const byName = new Map(prev.map((f) => [f.name, f]));
+      loaded.forEach((f) => byName.set(f.name, f));
+      return [...byName.values()];
+    });
+  }
+
+  function removeFile(fileName: string) {
+    setFiles((prev) => prev.filter((f) => f.name !== fileName));
   }
 
   function useSample() {
     setMethod("paste");
     setContent(sampleCsv);
-    setFilename("sample.csv");
   }
 
-  function detectSourceType(): "CSV" | "TXT" | "PASTED_TEXT" {
+  function detectSourceType(text: string, filename?: string): "CSV" | "TXT" | "PASTED_TEXT" {
     const lower = (filename ?? "").toLowerCase();
     if (lower.endsWith(".csv")) return "CSV";
-    if (method === "file" && lower.endsWith(".txt")) return "TXT";
-    // Pasted content that looks like CSV (header + commas) is treated as CSV.
-    if (/^[^\n]*,[^\n]*\n/.test(content)) return "CSV";
+    if (filename && lower.endsWith(".txt")) return "TXT";
+    // Content that looks like CSV (header + commas) is treated as CSV.
+    if (/^[^\n]*,[^\n]*\n/.test(text)) return "CSV";
     return "PASTED_TEXT";
   }
 
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
-    if (!content.trim()) {
-      setError("Add some data first — upload a file, paste text, or use the sample.");
+
+    // Build the list of uploads from either the selected files or pasted text.
+    const uploads: { content: string; filename?: string }[] =
+      method === "file"
+        ? files.filter((f) => f.content.trim()).map((f) => ({ content: f.content, filename: f.name }))
+        : content.trim()
+          ? [{ content }]
+          : [];
+
+    if (uploads.length === 0) {
+      setError("Add some data first — upload one or more files, paste text, or use the sample.");
       return;
     }
 
@@ -83,24 +104,29 @@ export function UploadDataForm({
       targetWorkspaceId = created.data.workspace.id;
     }
 
-    const ingest = await apiPost<IngestResponse>(`/api/workspaces/${targetWorkspaceId}/ingest`, {
-      sourceType: detectSourceType(),
-      content,
-      filename
-    });
+    let totalCodes = 0;
+    for (const upload of uploads) {
+      const ingest = await apiPost<IngestResponse>(`/api/workspaces/${targetWorkspaceId}/ingest`, {
+        sourceType: detectSourceType(upload.content, upload.filename),
+        content: upload.content,
+        filename: upload.filename
+      });
+      if (isError(ingest)) {
+        setBusy(false);
+        setError(
+          uploads.length > 1
+            ? `${upload.filename ?? "Pasted text"}: ${ingest.error.message}`
+            : ingest.error.message
+        );
+        return;
+      }
+      totalCodes += ingest.data.ingestion.codeCount;
+    }
 
     setBusy(false);
 
-    if (isError(ingest)) {
-      setError(ingest.error.message);
-      return;
-    }
-
     // Open the privacy-check modal as a follow-up step instead of navigating away.
-    setConsent({
-      workspaceId: targetWorkspaceId as string,
-      codeCount: ingest.data.ingestion.codeCount
-    });
+    setConsent({ workspaceId: targetWorkspaceId as string, codeCount: totalCodes });
   }
 
   return (
@@ -132,16 +158,34 @@ export function UploadDataForm({
             ref={fileInputRef}
             type="file"
             accept=".csv,.txt,text/csv,text/plain"
+            multiple
             onChange={onFileChange}
           />
-          {filename && (
-            <span style={{ fontSize: 13, color: "#374151" }}>
-              Loaded <strong>{filename}</strong> ({content.length} characters)
-            </span>
+          {files.length > 0 && (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.25rem" }}>
+              {files.map((f) => (
+                <li
+                  key={f.name}
+                  style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: 13, color: "#374151" }}
+                >
+                  <strong>{f.name}</strong>
+                  <span style={{ color: "#9ca3af" }}>({f.content.length} chars)</span>
+                  <button
+                    type="button"
+                    onClick={() => removeFile(f.name)}
+                    style={{ border: "none", background: "none", color: "#b91c1c", cursor: "pointer", fontSize: 12 }}
+                  >
+                    remove
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
           <span style={{ fontSize: 12, color: "#6b7280" }}>
-            CSV with a <code>code</code> column works best; optional <code>quote</code>, <code>memo</code>,
-            and <code>participant</code> columns add context. Plain .txt is one code per line.
+            Upload one or more files (e.g. one per participant). CSV with a <code>code</code> column works
+            best; optional <code>quote</code>, <code>memo</code>, and <code>participant</code> columns add
+            context. Plain .txt is one code per line. Files without a <code>participant</code> column are
+            grouped under the file name.
           </span>
         </div>
       ) : (

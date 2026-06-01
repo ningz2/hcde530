@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
 import { repo } from "@/lib/repo/store";
 
@@ -19,8 +18,6 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
       title="Activity"
       description="Your session's edit history. Each board edit captures a revertible snapshot; undo is available from the board."
     >
-      <WizardProgress current="history" />
-
       {snapshots.length === 0 ? (
         <p style={{ color: "#6b7280" }}>No edits recorded in this session yet.</p>
       ) : (

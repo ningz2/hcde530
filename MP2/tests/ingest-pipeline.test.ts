@@ -74,6 +74,20 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
     expect(codes).toContain("Onboarding was confusing");
   });
 
+  it("groups a file without a participant column under the file name", async () => {
+    await extractAndStore({
+      workspaceId,
+      submittedByUserId: "u1",
+      sourceType: "CSV",
+      payload: "code\nOnboarding friction\nPricing unclear",
+      filename: "alice.csv"
+    });
+
+    const labels = repo.listParticipants(workspaceId).map((p) => p.anonymizedLabel);
+    expect(labels).toContain("alice");
+    expect(labels).not.toContain("Unassigned");
+  });
+
   it("treats each pasted line as a code", async () => {
     const result = await extractAndStore({
       workspaceId,

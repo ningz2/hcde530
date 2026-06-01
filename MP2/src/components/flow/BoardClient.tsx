@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPatch, apiPost, apiSend, isError } from "@/lib/client/api";
-import { densityBackgroundFromRatio } from "@/lib/color/palette";
+import { tintForHex } from "@/lib/color/palette";
 import type { BoardView } from "@/domain/services/boardView";
 
 export function BoardClient({ view }: { view: BoardView }) {
@@ -59,16 +59,22 @@ export function BoardClient({ view }: { view: BoardView }) {
         </p>
       )}
 
-      <div style={{ display: "grid", gap: "1rem", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))" }}>
+      {/* Canvas: each theme is a zone holding colored sticky notes (one per code). */}
+      <div style={canvas}>
         {view.themes.map((theme) => (
-          <ThemeCard key={theme.id} workspaceId={view.workspaceId} theme={theme} onSaved={() => router.refresh()} />
+          <ThemeZone
+            key={theme.id}
+            workspaceId={view.workspaceId}
+            theme={theme}
+            onSaved={() => router.refresh()}
+          />
         ))}
       </div>
     </div>
   );
 }
 
-function ThemeCard({
+function ThemeZone({
   workspaceId,
   theme,
   onSaved
@@ -92,12 +98,12 @@ function ThemeCard({
   }
 
   return (
-    <section style={{ border: "1px solid #d1d5db", borderRadius: 10, padding: "0.85rem", background: "#fff" }}>
+    <section style={zone}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
         {editing ? (
           <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1, padding: "0.3rem" }} />
         ) : (
-          <h3 style={{ margin: 0, fontSize: "1.05rem" }}>{theme.title}</h3>
+          <h3 style={{ margin: 0, fontSize: "1rem" }}>{theme.title}</h3>
         )}
         {editing ? (
           <button type="button" onClick={save} disabled={busy} style={miniButton}>
@@ -110,55 +116,103 @@ function ThemeCard({
         )}
       </header>
 
-      <p style={{ margin: "0.4rem 0", fontSize: 12 }}>
-        <span
-          style={{
-            display: "inline-block",
-            padding: "0.1rem 0.45rem",
-            borderRadius: 999,
-            background: "#eef2ff",
-            color: "#3730a3",
-            fontWeight: 600
-          }}
-        >
-          Mentioned by {theme.mentionCount} participant{theme.mentionCount === 1 ? "" : "s"}
-        </span>
-      </p>
+      <span style={badge}>
+        Mentioned by {theme.mentionCount} participant{theme.mentionCount === 1 ? "" : "s"}
+      </span>
 
-      <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.5rem" }}>
+      <div style={notesWrap}>
         {theme.assignments.map((assignment) => (
-          <li
+          <div
             key={assignment.codeId}
+            title={assignment.rationale}
             style={{
-              borderLeft: `4px solid ${assignment.participantHex}`,
-              background: densityBackgroundFromRatio(assignment.participantHex, theme.colorDensity),
-              borderRadius: 6,
-              padding: "0.5rem 0.6rem"
+              ...stickyNote,
+              background: tintForHex(assignment.participantHex, 0.2),
+              borderColor: tintForHex(assignment.participantHex, 0.5),
+              borderTop: `5px solid ${assignment.participantHex}`
             }}
           >
-            <p style={{ margin: 0, fontSize: 13, fontWeight: 600 }}>{assignment.code}</p>
-            {assignment.quote && (
-              <p style={{ margin: "0.2rem 0 0", fontSize: 12, fontStyle: "italic", color: "#374151" }}>
-                “{assignment.quote}”
-              </p>
-            )}
-            {assignment.memo && (
-              <p style={{ margin: "0.2rem 0 0", fontSize: 11, color: "#6b7280" }}>
-                Memo: {assignment.memo}
-              </p>
-            )}
-            <p style={{ margin: "0.3rem 0 0", fontSize: 11, color: "#6b7280" }}>
-              <span style={{ color: assignment.participantHex, fontWeight: 600 }}>
-                {assignment.participantLabel}
-              </span>{" "}
-              · {assignment.rationale}
-            </p>
-          </li>
+            <span style={codeText}>{assignment.code}</span>
+            <span style={{ ...participantTag, color: assignment.participantHex }}>
+              {assignment.participantLabel}
+            </span>
+          </div>
         ))}
-      </ul>
+      </div>
     </section>
   );
 }
+
+const canvas: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "1rem",
+  alignItems: "flex-start",
+  background: "#f8fafc",
+  border: "1px solid #e5e7eb",
+  borderRadius: 12,
+  padding: "1rem",
+  minHeight: 160
+};
+
+const zone: React.CSSProperties = {
+  flex: "1 1 260px",
+  maxWidth: 360,
+  display: "grid",
+  gap: "0.5rem",
+  background: "#fff",
+  border: "1px solid #e5e7eb",
+  borderRadius: 10,
+  padding: "0.75rem"
+};
+
+const badge: React.CSSProperties = {
+  justifySelf: "start",
+  padding: "0.1rem 0.45rem",
+  borderRadius: 999,
+  background: "#eef2ff",
+  color: "#3730a3",
+  fontWeight: 600,
+  fontSize: 11
+};
+
+const notesWrap: React.CSSProperties = {
+  display: "flex",
+  flexWrap: "wrap",
+  gap: "0.5rem"
+};
+
+const stickyNote: React.CSSProperties = {
+  width: 120,
+  height: 120,
+  border: "1px solid",
+  borderRadius: 8,
+  padding: "0.5rem",
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "space-between",
+  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+  overflow: "hidden"
+};
+
+const codeText: React.CSSProperties = {
+  fontSize: 13,
+  fontWeight: 600,
+  color: "#111827",
+  lineHeight: 1.25,
+  display: "-webkit-box",
+  WebkitLineClamp: 4,
+  WebkitBoxOrient: "vertical",
+  overflow: "hidden"
+};
+
+const participantTag: React.CSSProperties = {
+  fontSize: 10,
+  fontWeight: 600,
+  whiteSpace: "nowrap",
+  overflow: "hidden",
+  textOverflow: "ellipsis"
+};
 
 const primaryButton: React.CSSProperties = {
   padding: "0.5rem 0.85rem",

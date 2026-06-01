@@ -27,7 +27,8 @@ export class RealParserService implements ParserService {
   }
 }
 
-const UNASSIGNED = "Unassigned";
+export const UNASSIGNED_PARTICIPANT = "Unassigned";
+const UNASSIGNED = UNASSIGNED_PARTICIPANT;
 
 function parseLines(payload: string, sourceRef: string): ParsedCode[] {
   return payload
