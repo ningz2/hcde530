@@ -33,6 +33,12 @@ function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
 }
 
+function maxThemeGranularity(groupTarget: number): number {
+  // Affinity hierarchy invariant: themes are broader containers, so there must
+  // always be fewer themes than leaf groups whenever themes are present.
+  return Math.max(1, groupTarget - 1);
+}
+
 function modeDepth(mode: HierarchyMode): number {
   return mode === "GROUPS" ? 1 : mode === "THEMES" ? 2 : 3;
 }
@@ -41,8 +47,41 @@ function combinedText(code: CodeRecord): string {
   return [code.code, code.quote, code.memo].filter(Boolean).join(" ");
 }
 
-function rationaleFor(code: CodeRecord, themeTitle: string): string {
-  return `Grouped under "${themeTitle}" because it shares language with related codes.`;
+function shortEvidence(text?: string): string | undefined {
+  if (!text) return undefined;
+  const cleaned = text.replace(/\s+/g, " ").trim();
+  if (!cleaned) return undefined;
+  return cleaned.length > 90 ? `${cleaned.slice(0, 87)}...` : cleaned;
+}
+
+/**
+ * Assignment rationale should be more than keyword matching. It uses:
+ *  - the named group/topic (what bucket it belongs to),
+ *  - shared concepts in the surrounding cluster (why related to peers),
+ *  - quote/memo evidence when present (interpretive support from the row).
+ */
+function rationaleFor(code: CodeRecord, themeTitle: string, clusterKeywords: string[]): string {
+  const concepts = clusterKeywords.slice(0, 2);
+  const quote = shortEvidence(code.quote);
+  const memo = shortEvidence(code.memo);
+
+  if (quote && memo) {
+    return `Placed in "${themeTitle}" because the code points to ${concepts.join(" and ") || "this topic"}, while the quote ("${quote}") and memo ("${memo}") add evidence for that interpretation.`;
+  }
+  if (quote) {
+    return `Placed in "${themeTitle}" because the code reflects ${concepts.join(" and ") || "this topic"}, and the supporting quote ("${quote}") shows the experience behind it.`;
+  }
+  if (memo) {
+    return `Placed in "${themeTitle}" because the code relates to ${concepts.join(" and ") || "this topic"}, and the memo ("${memo}") explains why it matters.`;
+  }
+
+  const codeTokens = tokenize(code.code);
+  const shared = concepts.filter((token) => codeTokens.includes(token));
+  if (shared.length > 0) {
+    return `Placed in "${themeTitle}" because "${code.code}" directly reflects the shared concept ${shared.join(" / ")} in this group.`;
+  }
+
+  return `Placed in "${themeTitle}" because its meaning fits the group's broader topic, not only a literal keyword match.`;
 }
 
 /** Resolve names for clusters: AI when available, keyword-derived otherwise. */
@@ -80,7 +119,11 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
 
   const defaults = defaultGranularity(codes.length);
   const groupTarget = clamp(params.groupGranularity ?? defaults.groups, 1, Math.max(codes.length, 1));
-  const themeTarget = clamp(params.themeGranularity ?? defaults.themes, 1, groupTarget);
+  const themeTarget = clamp(
+    params.themeGranularity ?? defaults.themes,
+    1,
+    maxThemeGranularity(groupTarget)
+  );
 
   const board = repo.createBoard({
     workspaceId: params.workspaceId,
@@ -143,7 +186,7 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
       repo.createAssignment({
         codeId: code.id,
         themeId,
-        rationale: rationaleFor(code, leafNames[leafIndex].title)
+        rationale: rationaleFor(code, leafNames[leafIndex].title, leafClusters[leafIndex].keywords)
       });
       assignmentPairs.push({ themeId, participantId: code.participantId });
       assignmentCount += 1;

@@ -1,10 +1,17 @@
+import { redirect } from "next/navigation";
 import { PageShell } from "@/components/layout/PageShell";
 import { UploadDataForm } from "@/components/flow/UploadDataForm";
 import { WizardProgress } from "@/components/flow/WizardProgress";
+import { getSessionContext } from "@/lib/auth/session";
 
 export const dynamic = "force-dynamic";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const session = await getSessionContext();
+  if (!session.identity) {
+    redirect("/login");
+  }
+
   return (
     <PageShell
       title="Add your data"

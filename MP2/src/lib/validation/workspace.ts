@@ -1,5 +1,11 @@
 import { z } from "zod";
 
+export const signInSchema = z.object({
+  email: z.string().email(),
+  displayName: z.string().max(120).optional(),
+  provider: z.enum(["EMAIL_PASSWORD", "GOOGLE"]).default("EMAIL_PASSWORD")
+});
+
 export const createWorkspaceSchema = z.object({
   name: z.string().min(1).max(120),
   researchQuestion: z.string().max(2000).optional(),

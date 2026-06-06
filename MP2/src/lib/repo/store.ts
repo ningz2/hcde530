@@ -18,6 +18,22 @@ export type SnapshotEntityType = "CODE" | "THEME" | "BOARD";
 
 export type HierarchyMode = "GROUPS" | "THEMES" | "RQS";
 
+export type UserProvider = "EMAIL_PASSWORD" | "GOOGLE";
+
+export type UserRecord = {
+  id: string;
+  email: string;
+  displayName?: string;
+  provider: UserProvider;
+  createdAt: string;
+};
+
+export type SessionRecord = {
+  token: string;
+  userId: string;
+  createdAt: string;
+};
+
 export type WorkspaceRecord = {
   id: string;
   name: string;
@@ -126,8 +142,10 @@ export type ExportJobRecord = {
   requestedByUserId?: string;
   format: ExportFormat;
   status: ExportStatus;
-  /** Inline preview/artifact for synchronous formats (CSV); async formats stay QUEUED. */
+  /** Inline artifact for synchronous exports. */
   artifactPreview?: string;
+  artifactMimeType?: string;
+  artifactFilename?: string;
   createdAt: string;
 };
 
@@ -163,6 +181,8 @@ export type ActivityLogRecord = {
 };
 
 type StoreShape = {
+  users: Map<string, UserRecord>;
+  sessions: Map<string, SessionRecord>;
   workspaces: Map<string, WorkspaceRecord>;
   uploads: Map<string, UploadRecord>;
   participants: Map<string, ParticipantRecord>;
@@ -184,6 +204,8 @@ declare global {
 
 function createStore(): StoreShape {
   return {
+    users: new Map(),
+    sessions: new Map(),
     workspaces: new Map(),
     uploads: new Map(),
     participants: new Map(),
@@ -236,6 +258,8 @@ function snapshotKey(workspaceId: string, userId: string): string {
 export const repo = {
   reset(): void {
     const fresh = createStore();
+    store.users = fresh.users;
+    store.sessions = fresh.sessions;
     store.workspaces = fresh.workspaces;
     store.uploads = fresh.uploads;
     store.participants = fresh.participants;
@@ -247,6 +271,44 @@ export const repo = {
     store.exportJobs = fresh.exportJobs;
     store.snapshotStacks = fresh.snapshotStacks;
     store.activityLogs = fresh.activityLogs;
+  },
+
+  upsertUser(input: { email: string; provider: UserProvider; displayName?: string }): UserRecord {
+    const normalizedEmail = input.email.trim().toLowerCase();
+    const existing = [...store.users.values()].find((u) => u.email === normalizedEmail);
+    if (existing) {
+      const updated = { ...existing, provider: input.provider, displayName: input.displayName ?? existing.displayName };
+      store.users.set(existing.id, updated);
+      return updated;
+    }
+
+    const record: UserRecord = {
+      id: randomUUID(),
+      email: normalizedEmail,
+      provider: input.provider,
+      displayName: input.displayName,
+      createdAt: now()
+    };
+    store.users.set(record.id, record);
+    return record;
+  },
+
+  getUser(id: string): UserRecord | undefined {
+    return store.users.get(id);
+  },
+
+  createSession(userId: string): SessionRecord {
+    const record: SessionRecord = { token: randomUUID(), userId, createdAt: now() };
+    store.sessions.set(record.token, record);
+    return record;
+  },
+
+  getSession(token: string): SessionRecord | undefined {
+    return store.sessions.get(token);
+  },
+
+  deleteSession(token: string): void {
+    store.sessions.delete(token);
   },
 
   createWorkspace(input: Omit<WorkspaceRecord, "id" | "createdAt">): WorkspaceRecord {
@@ -293,6 +355,10 @@ export const repo = {
 
   listWorkspaces(): WorkspaceRecord[] {
     return [...store.workspaces.values()].sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  },
+
+  listWorkspacesForUser(userId: string): WorkspaceRecord[] {
+    return this.listWorkspaces().filter((w) => w.createdByUserId === userId);
   },
 
   createUpload(input: Omit<UploadRecord, "id" | "createdAt">): UploadRecord {

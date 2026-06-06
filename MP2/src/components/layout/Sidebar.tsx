@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { apiSend, isError } from "@/lib/client/api";
 
 type Project = { id: string; name: string };
+type SidebarUser = { email: string; displayName?: string; provider: string } | null;
 
 const STORAGE_KEY = "mp2-sidebar-collapsed";
 
@@ -14,7 +15,7 @@ const STORAGE_KEY = "mp2-sidebar-collapsed";
  * "threads"; click to open a board, or delete with a confirmation. The
  * collapsed/expanded state is remembered in localStorage.
  */
-export function Sidebar({ projects }: { projects: Project[] }) {
+export function Sidebar({ projects, user }: { projects: Project[]; user: SidebarUser }) {
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
@@ -22,9 +23,9 @@ export function Sidebar({ projects }: { projects: Project[] }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  useEffect(() => {
-    setCollapsed(window.localStorage.getItem(STORAGE_KEY) === "1");
-  }, []);
+  if (pathname === "/login" || pathname === "/callback") {
+    return null;
+  }
 
   function toggle() {
     setCollapsed((prev) => {
@@ -54,6 +55,12 @@ export function Sidebar({ projects }: { projects: Project[] }) {
     }
   }
 
+  async function logout() {
+    await apiSend("/api/auth/logout");
+    router.push("/login");
+    router.refresh();
+  }
+
   return (
     <aside style={{ ...sidebar, width: collapsed ? 52 : 264 }}>
       <div style={topRow}>
@@ -71,14 +78,28 @@ export function Sidebar({ projects }: { projects: Project[] }) {
 
       {!collapsed && (
         <>
-          <Link href="/" style={newButton}>
+          {user ? (
+            <div style={accountBox}>
+              <span style={{ fontWeight: 700, fontSize: 13 }}>{user.displayName ?? user.email}</span>
+              <span style={{ color: "#6b7280", fontSize: 12 }}>{user.email}</span>
+              <button type="button" onClick={logout} style={smallButton}>
+                Sign out
+              </button>
+            </div>
+          ) : (
+            <Link href="/login" style={newButton}>
+              Sign in
+            </Link>
+          )}
+
+          <Link href={user ? "/" : "/login"} style={newButton}>
             + New project
           </Link>
 
           <nav style={{ overflowY: "auto", display: "grid", gap: "0.2rem", marginTop: "0.5rem" }}>
             {projects.length === 0 ? (
               <span style={{ color: "#9ca3af", fontSize: 13, padding: "0.4rem 0.5rem" }}>
-                No projects yet.
+                {user ? "No projects yet." : "Sign in to see your projects."}
               </span>
             ) : (
               projects.map((p) => {
@@ -190,6 +211,28 @@ const newButton: React.CSSProperties = {
   color: "#1f2937",
   textDecoration: "none",
   marginTop: "0.4rem"
+};
+
+const accountBox: React.CSSProperties = {
+  display: "grid",
+  gap: "0.2rem",
+  border: "1px solid #e5e7eb",
+  background: "#fff",
+  borderRadius: 8,
+  padding: "0.6rem",
+  marginTop: "0.4rem"
+};
+
+const smallButton: React.CSSProperties = {
+  justifySelf: "start",
+  marginTop: "0.2rem",
+  border: "1px solid #d1d5db",
+  background: "#fff",
+  color: "#374151",
+  borderRadius: 6,
+  padding: "0.25rem 0.5rem",
+  fontSize: 12,
+  cursor: "pointer"
 };
 
 const threadRow: React.CSSProperties = {

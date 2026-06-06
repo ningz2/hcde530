@@ -44,8 +44,35 @@ describe("AI-empowered grouping", () => {
     // Every code is assigned exactly once.
     const assigned = view.tree.flatMap((n) => n.assignments).length;
     expect(assigned).toBe(6);
-    // Each assignment carries a one-sentence rationale.
-    expect(view.tree.flatMap((n) => n.assignments).every((a) => a.rationale.length > 0)).toBe(true);
+    // Each assignment carries an interpretation-aware rationale, not the old generic template.
+    const rationales = view.tree.flatMap((n) => n.assignments).map((a) => a.rationale);
+    expect(rationales.every((r) => r.length > 0)).toBe(true);
+    expect(new Set(rationales).size).toBeGreaterThan(1);
+    expect(rationales.join(" ")).not.toContain("shares language with related codes");
+  });
+
+  it("uses quote and memo context in assignment rationales", async () => {
+    const workspaceId = repo.createWorkspace({
+      name: "WS",
+      defaultHierarchyDepth: 2,
+      groupingDirection: "BOTTOM_UP",
+      createdByUserId: "u1"
+    }).id;
+
+    await extractAndStore({
+      workspaceId,
+      submittedByUserId: "u1",
+      sourceType: "CSV",
+      payload:
+        'code,quote,memo\nOnboarding confusion,"The first screen had too many choices","Interpret as decision overload"\nPricing concern,"I did not understand which plan fit me","Interpret as purchase uncertainty"'
+    });
+
+    await generateBoard({ workspaceId, boardName: "Board", hierarchyMode: "GROUPS", groupGranularity: 2 });
+    const rationales = getBoardView(workspaceId).themes.flatMap((t) => t.assignments).map((a) => a.rationale);
+
+    expect(rationales.join(" ")).toContain("the quote");
+    expect(rationales.join(" ")).toContain("memo");
+    expect(rationales.join(" ")).toContain("Interpret as");
   });
 
   it("nests groups under themes (THEMES mode)", async () => {
@@ -64,6 +91,22 @@ describe("AI-empowered grouping", () => {
     // Leaf groups (with codes) total to all assignments.
     const leafAssignments = view.themes.flatMap((t) => t.assignments).length;
     expect(leafAssignments).toBe(6);
+  });
+
+  it("keeps theme count lower than group count", async () => {
+    const workspaceId = await seed();
+    await generateBoard({
+      workspaceId,
+      boardName: "Board",
+      hierarchyMode: "THEMES",
+      groupGranularity: 4,
+      themeGranularity: 4
+    });
+
+    const view = getBoardView(workspaceId);
+    expect(view.board?.groupGranularity).toBe(4);
+    expect(view.board?.themeGranularity).toBeLessThan(4);
+    expect(view.tree.length).toBeLessThan(view.themes.length);
   });
 
   it("organizes themes under research questions (RQS mode)", async () => {

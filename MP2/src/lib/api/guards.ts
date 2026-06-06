@@ -38,6 +38,11 @@ export async function authorizeWorkspaceAction(
   if (!workspace) {
     throw new ApiError("NOT_FOUND", "Workspace not found.", 404);
   }
+  // Current vertical slice has owner-only workspace membership. Until Supabase
+  // membership tables are wired, keep account data isolated by creator.
+  if (workspace.createdByUserId !== session.identity.userId) {
+    throw new ApiError("NOT_FOUND", "Workspace not found.", 404);
+  }
 
   return { session, role, workspace };
 }

@@ -12,7 +12,7 @@ export async function GET() {
     const session = await getSessionContext();
     requireAuthenticated(session);
 
-    return ok({ workspaces: repo.listWorkspaces() });
+    return ok({ workspaces: repo.listWorkspacesForUser(session.identity.userId) });
   } catch (error) {
     return toErrorResponse(error, traceId);
   }

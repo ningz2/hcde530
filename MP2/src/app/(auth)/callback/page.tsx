@@ -1,12 +1,13 @@
+import { AuthCallbackClient } from "@/components/auth/AuthCallbackClient";
 import { PageShell } from "@/components/layout/PageShell";
 
 export default function AuthCallbackPage() {
   return (
     <PageShell
-      title="Auth callback"
-      description="OAuth callback placeholder for Supabase authentication providers."
+      title="Signing you in"
+      description="AffinityFlow is finishing the Google OAuth flow and connecting it to your project account."
     >
-      <p style={{ margin: 0 }}>This page will finalize SSO sessions and redirect users to their workspace.</p>
+      <AuthCallbackClient />
     </PageShell>
   );
 }

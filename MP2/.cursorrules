@@ -120,3 +120,7 @@ Product decisions confirmed during Phase 6 (day 2: default AI board + canvas)
 Secrets / API keys (non-negotiable)
 - All API keys/secrets live in environment variables, never hardcoded. Real values go in a git-ignored env file (.env.local); `.gitignore` excludes `.env` and `.env.*` except `.env.example`. Never commit/push real keys.
 - `.env.example` is the committed, secret-free template documenting every variable (DATABASE_URL, NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, ANTHROPIC_API_KEY). Code reads keys via process.env and degrades gracefully when a key is absent (e.g., no ANTHROPIC_API_KEY => deterministic keyword naming fallback).
+
+Product decisions confirmed during Phase 7 (demo account memory)
+- Users must sign in before creating/opening projects. The current slice implements a lightweight in-memory account/session layer with email sign-in and Supabase Google OAuth when configured; it sets an HTTP-only `affinityflow_session` cookie and filters projects by the signed-in account. Account/project persistence is still in-memory until the database swap.
+- Workspace data is isolated by creator account in the current slice: sidebar/API workspace lists only return projects created by the active user, workspace pages redirect unauthenticated users to `/login`, and direct workspace URLs return not-found for other accounts until real membership tables are wired.

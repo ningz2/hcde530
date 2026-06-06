@@ -27,7 +27,7 @@ export default async function BoardPage({ params }: BoardPageProps) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
         <header>
           <Link href="/" style={{ textDecoration: "none", color: "#1d4ed8", fontSize: 14 }}>
-            MP2 Affinity App
+            AffinityFlow
           </Link>
           <h1 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.6rem" }}>Affinity board</h1>
           <p style={{ margin: 0, color: "#4b5563", fontSize: 14 }}>

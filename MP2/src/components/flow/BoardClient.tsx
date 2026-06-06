@@ -29,6 +29,9 @@ export function BoardClient({ view }: { view: BoardView }) {
   const [themeGranularity, setThemeGranularity] = useState(view.board?.themeGranularity ?? 2);
 
   const maxGroups = Math.max(2, Math.min(12, view.codeCount || 2));
+  const effectiveGroupGranularity = Math.min(groupGranularity, maxGroups);
+  const maxThemes = Math.max(1, effectiveGroupGranularity - 1);
+  const effectiveThemeGranularity = Math.min(themeGranularity, maxThemes);
 
   async function regenerate() {
     setBusy(true);
@@ -36,8 +39,8 @@ export function BoardClient({ view }: { view: BoardView }) {
     const result = await apiPost(`/api/workspaces/${view.workspaceId}/grouping`, {
       boardName: "Affinity board",
       hierarchyMode: mode,
-      groupGranularity: Math.min(groupGranularity, maxGroups),
-      themeGranularity
+      groupGranularity: effectiveGroupGranularity,
+      themeGranularity: effectiveThemeGranularity
     });
     setBusy(false);
     if (isError(result)) {
@@ -180,14 +183,18 @@ export function BoardClient({ view }: { view: BoardView }) {
 
           <div>
             <span style={panelLabel}>
-              Group granularity: <strong>{Math.min(groupGranularity, maxGroups)}</strong> groups
+              Group granularity: <strong>{effectiveGroupGranularity}</strong> groups
             </span>
             <input
               type="range"
               min={2}
               max={maxGroups}
-              value={Math.min(groupGranularity, maxGroups)}
-              onChange={(e) => setGroupGranularity(Number(e.target.value))}
+              value={effectiveGroupGranularity}
+              onChange={(e) => {
+                const next = Number(e.target.value);
+                setGroupGranularity(next);
+                setThemeGranularity((current) => Math.min(current, Math.max(1, next - 1)));
+              }}
               style={{ width: "100%" }}
             />
             <span style={panelHint}>Fewer = broader groups · more = finer groups.</span>
@@ -195,13 +202,13 @@ export function BoardClient({ view }: { view: BoardView }) {
 
           <div style={{ opacity: mode === "GROUPS" ? 0.45 : 1 }}>
             <span style={panelLabel}>
-              Theme granularity: <strong>{themeGranularity}</strong> themes
+              Theme granularity: <strong>{effectiveThemeGranularity}</strong> themes
             </span>
             <input
               type="range"
               min={1}
-              max={8}
-              value={themeGranularity}
+            max={Math.min(8, maxThemes)}
+            value={effectiveThemeGranularity}
               disabled={mode === "GROUPS"}
               onChange={(e) => setThemeGranularity(Number(e.target.value))}
               style={{ width: "100%" }}
@@ -278,16 +285,28 @@ function NodeBox({
           {node.assignments.map((a) => (
             <div
               key={a.codeId}
-              title={a.rationale}
-              style={{
-                ...stickyNote,
-                background: tintForHex(a.participantHex, 0.2),
-                borderColor: tintForHex(a.participantHex, 0.5),
-                borderTop: `5px solid ${a.participantHex}`
-              }}
+              className="sticky-note-hover"
+              style={stickyNoteWrap}
+              onMouseDown={(e) => e.stopPropagation()}
             >
-              <span style={codeText}>{a.code}</span>
-              <span style={{ ...participantTag, color: a.participantHex }}>{a.participantLabel}</span>
+              <div
+                style={{
+                  ...stickyNote,
+                  background: tintForHex(a.participantHex, 0.2),
+                  borderColor: tintForHex(a.participantHex, 0.5),
+                  borderTop: `5px solid ${a.participantHex}`
+                }}
+              >
+                <span style={codeText}>{a.code}</span>
+                <span style={{ ...participantTag, color: a.participantHex }}>{a.participantLabel}</span>
+              </div>
+              <div className="sticky-note-hover-card" style={hoverCard}>
+                <h4 style={hoverTitle}>{a.code}</h4>
+                <InfoRow label="Why here" value={a.rationale} />
+                <InfoRow label="Quote" value={a.quote} empty="No associated quote" />
+                <InfoRow label="Memo" value={a.memo} empty="No memo" />
+                <InfoRow label="Source file" value={a.sourceRef} empty="Pasted text / unknown source" />
+              </div>
             </div>
           ))}
         </div>
@@ -298,7 +317,23 @@ function NodeBox({
           ))}
         </div>
       )}
+      <style jsx>{`
+        .sticky-note-hover:hover .sticky-note-hover-card {
+          display: block !important;
+        }
+      `}</style>
     </section>
+  );
+}
+
+function InfoRow({ label, value, empty }: { label: string; value?: string; empty?: string }) {
+  return (
+    <div style={infoRow}>
+      <span style={infoLabel}>{label}</span>
+      <p style={{ ...infoValue, color: value ? "#374151" : "#9ca3af", fontStyle: value ? "normal" : "italic" }}>
+        {value || empty || "Not provided"}
+      </p>
+    </div>
   );
 }
 
@@ -380,6 +415,12 @@ const notesWrap: React.CSSProperties = {
   maxWidth: 420
 };
 
+const stickyNoteWrap: React.CSSProperties = {
+  position: "relative",
+  width: 120,
+  height: 120
+};
+
 const stickyNote: React.CSSProperties = {
   width: 120,
   height: 120,
@@ -391,6 +432,51 @@ const stickyNote: React.CSSProperties = {
   justifyContent: "space-between",
   boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
   overflow: "hidden"
+};
+
+const hoverCard: React.CSSProperties = {
+  position: "absolute",
+  left: "calc(100% + 0.6rem)",
+  top: 0,
+  width: 280,
+  maxHeight: 320,
+  overflowY: "auto",
+  background: "#fff",
+  border: "1px solid #dbeafe",
+  borderRadius: 10,
+  boxShadow: "0 12px 32px rgba(15, 23, 42, 0.18)",
+  padding: "0.75rem",
+  display: "none",
+  zIndex: 20,
+  pointerEvents: "none"
+};
+
+const hoverTitle: React.CSSProperties = {
+  margin: "0 0 0.5rem",
+  color: "#111827",
+  fontSize: 14,
+  lineHeight: 1.25
+};
+
+const infoRow: React.CSSProperties = {
+  display: "grid",
+  gap: "0.1rem",
+  paddingTop: "0.45rem",
+  borderTop: "1px solid #eef2ff"
+};
+
+const infoLabel: React.CSSProperties = {
+  color: "#1d4ed8",
+  fontSize: 11,
+  fontWeight: 700,
+  textTransform: "uppercase",
+  letterSpacing: "0.04em"
+};
+
+const infoValue: React.CSSProperties = {
+  margin: 0,
+  fontSize: 12,
+  lineHeight: 1.4
 };
 
 const codeText: React.CSSProperties = {

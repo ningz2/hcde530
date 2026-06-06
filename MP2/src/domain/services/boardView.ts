@@ -6,6 +6,8 @@ export type BoardAssignmentView = {
   code: string;
   quote?: string;
   memo?: string;
+  /** File/source this code came from (e.g. CSV filename or pasted text). */
+  sourceRef?: string;
   rationale: string;
   piiMasked: boolean;
   participantLabel: string;
@@ -96,6 +98,7 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
           code: hideRaw ? REDACTED : item.code,
           quote: hideRaw ? undefined : item.quote,
           memo: hideRaw ? undefined : item.memo,
+          sourceRef: item.sourceRef,
           rationale: assignment.rationale,
           piiMasked: item.piiMasked,
           participantLabel: participant?.anonymizedLabel ?? "Unknown",

@@ -22,13 +22,15 @@ npm run dev
 The flow is a guided wizard; the **Affinity board is the final destination**.
 Export & share and Activity are optional, accessed from the board.
 
-1. **Add data** (`/`) — upload one or more CSV/TXT files, paste text, or use the
+1. **Sign in** (`/login`) — create/open a demo account with email or Google. Projects are
+   remembered per account while the dev server is running.
+2. **Add data** (`/`) — upload one or more CSV/TXT files, paste text, or use the
    sample. You can select one file (all participants) or multiple files (one
    participant each). You can also add **research questions** one by one.
-2. **Privacy check** — a modal pops up after upload to mask PII (default ON) and
+3. **Privacy check** — a modal pops up after upload to mask PII (default ON) and
    shows what was masked. Continuing takes you straight to the board (the old
    "set up grouping" step is gone).
-3. **Affinity board** — opens with a **default AI grouping** already generated.
+4. **Affinity board** — opens with a **default AI grouping** already generated.
    It's a Miro/FigJam-style canvas: **scroll to zoom**, **drag the background to
    pan**. Codes are colored square sticky notes (code only); each group has an
    AI-suggested name you can rename inline.

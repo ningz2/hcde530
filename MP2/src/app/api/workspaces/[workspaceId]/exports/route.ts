@@ -54,7 +54,9 @@ export async function POST(request: Request, { params }: RouteProps) {
           id: job.id,
           format: job.format,
           status: job.status,
-          artifactPreview: job.artifactPreview
+          artifactPreview: job.artifactPreview,
+          artifactMimeType: job.artifactMimeType,
+          artifactFilename: job.artifactFilename
         }
       },
       201
