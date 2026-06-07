@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPatch, apiPost, apiSend, isError } from "@/lib/client/api";
 import { tintForHex } from "@/lib/color/palette";
@@ -13,6 +13,72 @@ const HIERARCHY_OPTIONS: { mode: HierarchyMode; label: string; hint: string }[] 
   { mode: "RQS", label: "By research questions", hint: "Themes organized under each research question." }
 ];
 
+const PANEL_MARGIN = 12;
+const PANEL_SNAP_THRESHOLD = 72;
+
+type PanelBounds = {
+  viewportWidth: number;
+  viewportHeight: number;
+  panelWidth: number;
+  panelHeight: number;
+};
+
+function panelEdgeLimits(bounds: PanelBounds) {
+  return {
+    minX: PANEL_MARGIN,
+    minY: PANEL_MARGIN,
+    maxX: Math.max(PANEL_MARGIN, bounds.viewportWidth - bounds.panelWidth - PANEL_MARGIN),
+    maxY: Math.max(PANEL_MARGIN, bounds.viewportHeight - bounds.panelHeight - PANEL_MARGIN)
+  };
+}
+
+function clampPanelPosition(x: number, y: number, bounds: PanelBounds) {
+  const { minX, minY, maxX, maxY } = panelEdgeLimits(bounds);
+  return {
+    x: Math.min(maxX, Math.max(minX, x)),
+    y: Math.min(maxY, Math.max(minY, y))
+  };
+}
+
+function snapPanelToEdges(x: number, y: number, bounds: PanelBounds) {
+  const { minX, minY, maxX, maxY } = panelEdgeLimits(bounds);
+  const clamped = clampPanelPosition(x, y, bounds);
+
+  let snappedX = clamped.x;
+  if (clamped.x - minX <= PANEL_SNAP_THRESHOLD) snappedX = minX;
+  else if (maxX - clamped.x <= PANEL_SNAP_THRESHOLD) snappedX = maxX;
+
+  let snappedY = clamped.y;
+  if (clamped.y - minY <= PANEL_SNAP_THRESHOLD) snappedY = minY;
+  else if (maxY - clamped.y <= PANEL_SNAP_THRESHOLD) snappedY = maxY;
+
+  return { x: snappedX, y: snappedY };
+}
+
+function positionForSnap(
+  snapX: "left" | "right" | "free",
+  snapY: "top" | "bottom" | "free",
+  bounds: PanelBounds,
+  current: { x: number; y: number }
+) {
+  const { minX, minY, maxX, maxY } = panelEdgeLimits(bounds);
+  return {
+    x: snapX === "left" ? minX : snapX === "right" ? maxX : current.x,
+    y: snapY === "top" ? minY : snapY === "bottom" ? maxY : current.y
+  };
+}
+
+function resolveSnapAnchors(
+  position: { x: number; y: number },
+  bounds: PanelBounds
+): { x: "left" | "right" | "free"; y: "top" | "bottom" | "free" } {
+  const { minX, minY, maxX, maxY } = panelEdgeLimits(bounds);
+  return {
+    x: Math.abs(position.x - minX) <= 2 ? "left" : Math.abs(position.x - maxX) <= 2 ? "right" : "free",
+    y: Math.abs(position.y - minY) <= 2 ? "top" : Math.abs(position.y - maxY) <= 2 ? "bottom" : "free"
+  };
+}
+
 export function BoardClient({ view }: { view: BoardView }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
@@ -21,7 +87,18 @@ export function BoardClient({ view }: { view: BoardView }) {
   // Canvas view transform (Miro/FigJam-style zoom + pan).
   const [scale, setScale] = useState(1);
   const [pan, setPan] = useState({ x: 0, y: 0 });
+  const viewportRef = useRef<HTMLDivElement | null>(null);
   const dragRef = useRef<{ x: number; y: number; panX: number; panY: number } | null>(null);
+  const [panelCollapsed, setPanelCollapsed] = useState(false);
+  const [panelPosition, setPanelPosition] = useState({ x: PANEL_MARGIN, y: PANEL_MARGIN });
+  const panelPositionRef = useRef(panelPosition);
+  const [panelDragging, setPanelDragging] = useState(false);
+  const [panelSnap, setPanelSnap] = useState<{ x: "left" | "right" | "free"; y: "top" | "bottom" | "free" }>({
+    x: "right",
+    y: "top"
+  });
+  const panelRef = useRef<HTMLElement | null>(null);
+  const panelDragRef = useRef<{ x: number; y: number; panelX: number; panelY: number } | null>(null);
 
   // Control panel state, seeded from the current board.
   const [mode, setMode] = useState<HierarchyMode>(view.board?.hierarchyMode ?? "GROUPS");
@@ -78,9 +155,66 @@ export function BoardClient({ view }: { view: BoardView }) {
     if (!d) return;
     setPan({ x: d.panX + (e.clientX - d.x), y: d.panY + (e.clientY - d.y) });
   }
-  function endDrag() {
-    dragRef.current = null;
+  function getPanelBounds(): PanelBounds | null {
+    const viewportRect = viewportRef.current?.getBoundingClientRect();
+    const panelRect = panelRef.current?.getBoundingClientRect();
+    if (!viewportRect || !panelRect) return null;
+    return {
+      viewportWidth: viewportRect.width,
+      viewportHeight: viewportRect.height,
+      panelWidth: panelRect.width,
+      panelHeight: panelRect.height
+    };
   }
+
+  function endDrag() {
+    if (panelDragRef.current) {
+      const bounds = getPanelBounds();
+      if (bounds) {
+        const snapped = snapPanelToEdges(panelPositionRef.current.x, panelPositionRef.current.y, bounds);
+        panelPositionRef.current = snapped;
+        setPanelPosition(snapped);
+        setPanelSnap(resolveSnapAnchors(snapped, bounds));
+      }
+      setPanelDragging(false);
+    }
+    dragRef.current = null;
+    panelDragRef.current = null;
+  }
+
+  function startPanelDrag(e: React.MouseEvent) {
+    setPanelDragging(true);
+    panelDragRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      panelX: panelPosition.x,
+      panelY: panelPosition.y
+    };
+  }
+
+  function onPanelDrag(e: React.MouseEvent) {
+    const d = panelDragRef.current;
+    if (!d) return;
+    const bounds = getPanelBounds();
+    if (!bounds) return;
+    const next = clampPanelPosition(d.panelX + (e.clientX - d.x), d.panelY + (e.clientY - d.y), bounds);
+    panelPositionRef.current = next;
+    setPanelPosition(next);
+  }
+
+  useLayoutEffect(() => {
+    function syncDockedPanel() {
+      const bounds = getPanelBounds();
+      if (!bounds) return;
+      const next = positionForSnap(panelSnap.x, panelSnap.y, bounds, panelPositionRef.current);
+      panelPositionRef.current = next;
+      setPanelPosition(next);
+    }
+
+    syncDockedPanel();
+    window.addEventListener("resize", syncDockedPanel);
+    return () => window.removeEventListener("resize", syncDockedPanel);
+  }, [panelCollapsed, panelSnap.x, panelSnap.y]);
 
   const hasBoard = Boolean(view.board) && view.tree.length > 0;
 
@@ -120,10 +254,14 @@ export function BoardClient({ view }: { view: BoardView }) {
       {error && <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>}
 
       <div
+        ref={viewportRef}
         style={canvasViewport}
         onWheel={onWheel}
         onMouseDown={onMouseDown}
-        onMouseMove={onMouseMove}
+        onMouseMove={(e) => {
+          onMouseMove(e);
+          onPanelDrag(e);
+        }}
         onMouseUp={endDrag}
         onMouseLeave={endDrag}
       >
@@ -141,7 +279,12 @@ export function BoardClient({ view }: { view: BoardView }) {
           >
             {view.tree.map((node) => (
               <div key={node.id} style={{ flex: "0 0 auto" }}>
-                <NodeBox workspaceId={view.workspaceId} node={node} onSaved={() => router.refresh()} />
+                <NodeBox
+                  workspaceId={view.workspaceId}
+                  node={node}
+                  canvasScale={scale}
+                  onSaved={() => router.refresh()}
+                />
               </div>
             ))}
           </div>
@@ -153,13 +296,38 @@ export function BoardClient({ view }: { view: BoardView }) {
           </p>
         )}
 
-        {/* "Organize the board" panel floats inside the canvas, snapped right. */}
+        {/* "Organize the board" panel floats inside the canvas and can be moved out of the way. */}
         <aside
-          style={panel}
-          onMouseDown={(e) => e.stopPropagation()}
+          ref={panelRef}
+          style={{
+            ...panel,
+            left: panelPosition.x,
+            top: panelPosition.y,
+            width: panelCollapsed ? 190 : 250,
+            transition: panelDragging ? "none" : "left 0.22s ease-out, top 0.22s ease-out"
+          }}
+          onMouseDown={(e) => {
+            e.stopPropagation();
+          }}
           onWheel={(e) => e.stopPropagation()}
         >
-          <h3 style={{ margin: 0, fontSize: "1rem" }}>Organize the board</h3>
+          <div style={panelHeader} onMouseDown={startPanelDrag} title="Drag to move · release near an edge to snap">
+            <h3 style={{ margin: 0, fontSize: "1rem" }}>Organize the board</h3>
+            <button
+              type="button"
+              onMouseDown={(e) => e.stopPropagation()}
+              onClick={() => setPanelCollapsed((v) => !v)}
+              style={panelIconButton}
+              aria-label={panelCollapsed ? "Expand organize panel" : "Collapse organize panel"}
+            >
+              {panelCollapsed ? "+" : "−"}
+            </button>
+          </div>
+
+          {panelCollapsed ? (
+            <p style={{ ...panelHint, margin: 0 }}>Drag near a canvas edge to snap. Expand when you need controls.</p>
+          ) : (
+            <>
 
           <div>
             <span style={panelLabel}>Hierarchy</span>
@@ -221,6 +389,8 @@ export function BoardClient({ view }: { view: BoardView }) {
           <button type="button" onClick={regenerate} disabled={busy} style={applyButton}>
             {busy ? "Generating…" : "Apply"}
           </button>
+            </>
+          )}
         </aside>
       </div>
       <span style={{ fontSize: 12, color: "#9ca3af" }}>Scroll to zoom · drag the background to pan.</span>
@@ -231,10 +401,12 @@ export function BoardClient({ view }: { view: BoardView }) {
 function NodeBox({
   workspaceId,
   node,
+  canvasScale,
   onSaved
 }: {
   workspaceId: string;
   node: BoardNode;
+  canvasScale: number;
   onSaved: () => void;
 }) {
   const [title, setTitle] = useState(node.title);
@@ -300,7 +472,14 @@ function NodeBox({
                 <span style={codeText}>{a.code}</span>
                 <span style={{ ...participantTag, color: a.participantHex }}>{a.participantLabel}</span>
               </div>
-              <div className="sticky-note-hover-card" style={hoverCard}>
+              <div
+                className="sticky-note-hover-card"
+                style={{
+                  ...hoverCard,
+                  transform: `scale(${1 / canvasScale})`,
+                  transformOrigin: "top left"
+                }}
+              >
                 <h4 style={hoverTitle}>{a.code}</h4>
                 <InfoRow label="Why here" value={a.rationale} />
                 <InfoRow label="Quote" value={a.quote} empty="No associated quote" />
@@ -313,7 +492,13 @@ function NodeBox({
       ) : (
         <div style={childrenWrap}>
           {node.children.map((child) => (
-            <NodeBox key={child.id} workspaceId={workspaceId} node={child} onSaved={onSaved} />
+            <NodeBox
+              key={child.id}
+              workspaceId={workspaceId}
+              node={child}
+              canvasScale={canvasScale}
+              onSaved={onSaved}
+            />
           ))}
         </div>
       )}
@@ -344,13 +529,13 @@ const toolbar: React.CSSProperties = {
 };
 
 const zoomButton: React.CSSProperties = {
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--af-border)",
+  background: "rgba(255,255,255,0.92)",
   borderRadius: 6,
   padding: "0.25rem 0.5rem",
   fontSize: 13,
   cursor: "pointer",
-  color: "#374151"
+  color: "var(--af-text)"
 };
 
 const canvasViewport: React.CSSProperties = {
@@ -359,16 +544,17 @@ const canvasViewport: React.CSSProperties = {
   height: "calc(100vh - 230px)",
   minHeight: 480,
   overflow: "hidden",
-  background: "#f8fafc",
-  backgroundImage: "radial-gradient(#e2e8f0 1px, transparent 1px)",
+  background: "linear-gradient(135deg, #f8fbff, #f6f0ff)",
+  backgroundImage: "radial-gradient(rgba(37,99,235,0.18) 1px, transparent 1px)",
   backgroundSize: "20px 20px",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
+  border: "1px solid var(--af-border)",
+  borderRadius: 18,
+  boxShadow: "var(--af-shadow)",
   cursor: "grab"
 };
 
 const containerBase: React.CSSProperties = {
-  borderRadius: 12,
+  borderRadius: 16,
   padding: "0.75rem",
   display: "grid",
   gap: "0.5rem",
@@ -376,19 +562,20 @@ const containerBase: React.CSSProperties = {
 };
 
 const containerL1: React.CSSProperties = {
-  background: "#ffffff",
-  border: "1px solid #cbd5e1",
-  boxShadow: "0 1px 3px rgba(0,0,0,0.06)"
+  background: "rgba(255,255,255,0.9)",
+  border: "1px solid var(--af-border)",
+  boxShadow: "var(--af-shadow-soft)",
+  backdropFilter: "blur(8px)"
 };
 
 const containerL2: React.CSSProperties = {
-  background: "#fbfcff",
-  border: "1px dashed #c7d2fe"
+  background: "rgba(248,251,255,0.9)",
+  border: "1px dashed rgba(124,58,237,0.35)"
 };
 
 const containerL3: React.CSSProperties = {
-  background: "#fff",
-  border: "1px solid #e5e7eb"
+  background: "rgba(255,255,255,0.92)",
+  border: "1px solid var(--af-border)"
 };
 
 const childrenWrap: React.CSSProperties = {
@@ -403,7 +590,7 @@ const badge: React.CSSProperties = {
   padding: "0.1rem 0.45rem",
   borderRadius: 999,
   background: "#eef2ff",
-  color: "#3730a3",
+  color: "var(--af-blue)",
   fontWeight: 600,
   fontSize: 11
 };
@@ -425,12 +612,12 @@ const stickyNote: React.CSSProperties = {
   width: 120,
   height: 120,
   border: "1px solid",
-  borderRadius: 8,
+  borderRadius: 12,
   padding: "0.5rem",
   display: "flex",
   flexDirection: "column",
   justifyContent: "space-between",
-  boxShadow: "0 1px 2px rgba(0,0,0,0.08)",
+  boxShadow: "0 10px 24px rgba(15, 23, 42, 0.12)",
   overflow: "hidden"
 };
 
@@ -441,9 +628,9 @@ const hoverCard: React.CSSProperties = {
   width: 280,
   maxHeight: 320,
   overflowY: "auto",
-  background: "#fff",
-  border: "1px solid #dbeafe",
-  borderRadius: 10,
+  background: "rgba(255,255,255,0.96)",
+  border: "1px solid var(--af-border)",
+  borderRadius: 12,
   boxShadow: "0 12px 32px rgba(15, 23, 42, 0.18)",
   padding: "0.75rem",
   display: "none",
@@ -453,7 +640,7 @@ const hoverCard: React.CSSProperties = {
 
 const hoverTitle: React.CSSProperties = {
   margin: "0 0 0.5rem",
-  color: "#111827",
+  color: "var(--af-text)",
   fontSize: 14,
   lineHeight: 1.25
 };
@@ -462,11 +649,11 @@ const infoRow: React.CSSProperties = {
   display: "grid",
   gap: "0.1rem",
   paddingTop: "0.45rem",
-  borderTop: "1px solid #eef2ff"
+  borderTop: "1px solid var(--af-border)"
 };
 
 const infoLabel: React.CSSProperties = {
-  color: "#1d4ed8",
+  color: "var(--af-blue)",
   fontSize: 11,
   fontWeight: 700,
   textTransform: "uppercase",
@@ -482,7 +669,7 @@ const infoValue: React.CSSProperties = {
 const codeText: React.CSSProperties = {
   fontSize: 13,
   fontWeight: 600,
-  color: "#111827",
+  color: "var(--af-text)",
   lineHeight: 1.25,
   display: "-webkit-box",
   WebkitLineClamp: 4,
@@ -500,9 +687,9 @@ const participantTag: React.CSSProperties = {
 
 const miniButton: React.CSSProperties = {
   padding: "0.25rem 0.5rem",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--af-border)",
   background: "#fff",
-  color: "#374151",
+  color: "var(--af-text)",
   borderRadius: 6,
   fontSize: 12,
   cursor: "pointer"
@@ -511,33 +698,59 @@ const miniButton: React.CSSProperties = {
 const panel: React.CSSProperties = {
   position: "absolute",
   top: 12,
-  right: 12,
+  left: 12,
   width: 250,
   maxHeight: "calc(100% - 24px)",
   overflowY: "auto",
   display: "grid",
   gap: "1rem",
-  background: "rgba(255,255,255,0.97)",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
+  background: "rgba(255,255,255,0.9)",
+  border: "1px solid var(--af-border)",
+  borderRadius: 16,
   padding: "1rem",
-  boxShadow: "0 6px 24px rgba(0,0,0,0.12)",
+  boxShadow: "var(--af-shadow)",
+  backdropFilter: "blur(16px)",
   zIndex: 5,
   cursor: "default"
+};
+
+const panelHeader: React.CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "space-between",
+  gap: "0.75rem",
+  cursor: "move",
+  userSelect: "none"
+};
+
+const panelIconButton: React.CSSProperties = {
+  width: 28,
+  height: 28,
+  border: "1px solid var(--af-border)",
+  borderRadius: 999,
+  background: "#fff",
+  color: "var(--af-text)",
+  cursor: "pointer",
+  fontSize: 18,
+  lineHeight: 1,
+  display: "inline-flex",
+  alignItems: "center",
+  justifyContent: "center",
+  boxShadow: "0 4px 12px rgba(23, 32, 51, 0.08)"
 };
 
 const panelLabel: React.CSSProperties = {
   display: "block",
   fontSize: 13,
   fontWeight: 600,
-  color: "#374151",
+  color: "var(--af-text)",
   marginBottom: "0.35rem"
 };
 
 const panelHint: React.CSSProperties = {
   display: "block",
   fontSize: 12,
-  color: "#6b7280",
+  color: "var(--af-muted)",
   marginTop: "0.25rem"
 };
 
@@ -545,7 +758,7 @@ const gradientRow: React.CSSProperties = {
   display: "flex",
   flexDirection: "column",
   gap: "0.35rem",
-  background: "linear-gradient(135deg, #2563eb, #7c3aed)",
+  background: "var(--af-gradient)",
   padding: "0.3rem",
   borderRadius: 10
 };
@@ -569,8 +782,8 @@ const gradientOptionActive: React.CSSProperties = {
 
 const applyButton: React.CSSProperties = {
   padding: "0.55rem 0.9rem",
-  border: "1px solid #1d4ed8",
-  background: "#1d4ed8",
+  border: "1px solid var(--af-blue)",
+  background: "var(--af-gradient)",
   color: "#fff",
   borderRadius: 8,
   fontSize: 14,
