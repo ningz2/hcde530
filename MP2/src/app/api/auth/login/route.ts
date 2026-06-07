@@ -1,5 +1,5 @@
 import { createTraceId } from "@/lib/api/trace";
-import { AUTH_COOKIE } from "@/lib/auth/session";
+import { AUTH_COOKIE, AUTH_COOKIE_MAX_AGE_SECONDS, createSignedSessionCookie } from "@/lib/auth/session";
 import { toErrorResponse, ok } from "@/lib/errors/http";
 import { repo } from "@/lib/repo/store";
 import { parseJsonBody } from "@/lib/validation/request";
@@ -15,13 +15,14 @@ export async function POST(request: Request) {
       displayName: input.displayName || input.email.split("@")[0],
       provider: input.provider
     });
-    const session = repo.createSession(user.id);
 
     const response = ok({ user }, 201);
-    response.cookies.set(AUTH_COOKIE, session.token, {
+    response.cookies.set(AUTH_COOKIE, createSignedSessionCookie(user), {
       httpOnly: true,
+      maxAge: AUTH_COOKIE_MAX_AGE_SECONDS,
       sameSite: "lax",
-      path: "/"
+      path: "/",
+      secure: process.env.NODE_ENV === "production"
     });
     return response;
   } catch (error) {
