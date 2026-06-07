@@ -105,12 +105,18 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
               projects.map((p) => {
                 const active = pathname.includes(p.id);
                 return (
-                  <div key={p.id} style={{ ...threadRow, background: active ? "#eef2ff" : "transparent" }}>
+                  <div
+                    key={p.id}
+                    style={{
+                      ...threadRow,
+                      background: active ? "linear-gradient(90deg, #eef2ff, #ecfeff)" : "transparent"
+                    }}
+                  >
                     <Link
                       href={`/workspaces/${p.id}/board`}
                       style={{
                         ...threadLink,
-                        color: active ? "#3730a3" : "#1f2937",
+                        color: active ? "var(--af-blue)" : "var(--af-text)",
                         fontWeight: active ? 600 : 400
                       }}
                       title={p.name}
@@ -168,8 +174,9 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
 
 const sidebar: React.CSSProperties = {
   flexShrink: 0,
-  borderRight: "1px solid #e5e7eb",
-  background: "#f9fafb",
+  borderRight: "1px solid var(--af-border)",
+  background: "rgba(255,255,255,0.72)",
+  backdropFilter: "blur(16px)",
   height: "100vh",
   position: "sticky",
   top: 0,
@@ -189,7 +196,7 @@ const topRow: React.CSSProperties = {
 };
 
 const iconButton: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
+  border: "1px solid var(--af-border)",
   background: "#fff",
   borderRadius: 6,
   width: 30,
@@ -203,21 +210,22 @@ const iconButton: React.CSSProperties = {
 const newButton: React.CSSProperties = {
   display: "block",
   textAlign: "center",
-  border: "1px solid #d1d5db",
-  background: "#fff",
+  border: "1px solid var(--af-border)",
+  background: "linear-gradient(180deg, #ffffff, #f8fbff)",
   borderRadius: 8,
   padding: "0.45rem",
   fontSize: 14,
-  color: "#1f2937",
+  color: "var(--af-text)",
   textDecoration: "none",
-  marginTop: "0.4rem"
+  marginTop: "0.4rem",
+  boxShadow: "var(--af-shadow-soft)"
 };
 
 const accountBox: React.CSSProperties = {
   display: "grid",
   gap: "0.2rem",
-  border: "1px solid #e5e7eb",
-  background: "#fff",
+  border: "1px solid var(--af-border)",
+  background: "rgba(255,255,255,0.9)",
   borderRadius: 8,
   padding: "0.6rem",
   marginTop: "0.4rem"
@@ -238,8 +246,9 @@ const smallButton: React.CSSProperties = {
 const threadRow: React.CSSProperties = {
   display: "flex",
   alignItems: "center",
-  borderRadius: 8,
-  paddingRight: "0.25rem"
+  borderRadius: 10,
+  paddingRight: "0.25rem",
+  transition: "background 0.15s ease, transform 0.15s ease"
 };
 
 const threadLink: React.CSSProperties = {

@@ -26,11 +26,13 @@ export default async function BoardPage({ params }: BoardPageProps) {
     <main style={{ width: "100%", padding: "1.5rem 1.5rem 2rem" }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: "1rem" }}>
         <header>
-          <Link href="/" style={{ textDecoration: "none", color: "#1d4ed8", fontSize: 14 }}>
+          <Link href="/" style={{ textDecoration: "none", color: "var(--af-blue)", fontSize: 14, fontWeight: 800 }}>
             AffinityFlow
           </Link>
-          <h1 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.6rem" }}>Affinity board</h1>
-          <p style={{ margin: 0, color: "#4b5563", fontSize: 14 }}>
+          <h1 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.75rem", letterSpacing: "-0.03em" }}>
+            Affinity board
+          </h1>
+          <p style={{ margin: 0, color: "var(--af-muted)", fontSize: 14 }}>
             Codes grouped into colored sticky notes (colored by participant). Rename inline; undo is per
             session. Use the panel on the right to change the hierarchy and granularity.
           </p>

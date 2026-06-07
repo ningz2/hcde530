@@ -1,6 +1,18 @@
 :root {
   color-scheme: light;
   font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --af-bg: #f6f8ff;
+  --af-bg-soft: #eef4ff;
+  --af-card: rgba(255, 255, 255, 0.88);
+  --af-card-solid: #ffffff;
+  --af-border: #dfe7f6;
+  --af-text: #172033;
+  --af-muted: #667085;
+  --af-blue: #0f5bd8;
+  --af-cyan: #06b6d4;
+  --af-gradient: linear-gradient(135deg, #0f5bd8 0%, #1976e9 52%, #25a9e8 100%);
+  --af-shadow: 0 18px 50px rgba(15, 91, 216, 0.14);
+  --af-shadow-soft: 0 10px 30px rgba(23, 32, 51, 0.08);
 }
 
 * {
@@ -9,8 +21,11 @@
 
 body {
   margin: 0;
-  background: #f7f8fa;
-  color: #1f2937;
+  background:
+    radial-gradient(circle at 10% 0%, rgba(15, 91, 216, 0.1), transparent 28rem),
+    radial-gradient(circle at 95% 10%, rgba(6, 182, 212, 0.1), transparent 26rem),
+    var(--af-bg);
+  color: var(--af-text);
 }
 
 a {

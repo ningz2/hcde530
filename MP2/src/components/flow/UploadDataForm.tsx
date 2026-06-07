@@ -389,8 +389,8 @@ function FormSection({
     <section style={sectionCard}>
       <div style={sectionHeader}>
         <span style={{ display: "grid", gap: "0.15rem", textAlign: "left" }}>
-          <strong style={{ color: "#111827" }}>{title}</strong>
-          <span style={{ color: "#6b7280", fontSize: 12 }}>{description}</span>
+          <strong style={{ color: "var(--af-text)" }}>{title}</strong>
+          <span style={{ color: "var(--af-muted)", fontSize: 12 }}>{description}</span>
         </span>
       </div>
       <div style={sectionBody}>{children}</div>
@@ -399,10 +399,11 @@ function FormSection({
 }
 
 const sectionCard: React.CSSProperties = {
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  background: "#fff",
-  overflow: "hidden"
+  border: "1px solid var(--af-border)",
+  borderRadius: 16,
+  background: "var(--af-card-solid)",
+  overflow: "hidden",
+  boxShadow: "var(--af-shadow-soft)"
 };
 
 const sectionHeader: React.CSSProperties = {
@@ -412,7 +413,7 @@ const sectionHeader: React.CSSProperties = {
   justifyContent: "space-between",
   gap: "1rem",
   border: "none",
-  background: "#f9fafb",
+  background: "linear-gradient(90deg, #f8fbff, #ffffff)",
   padding: "0.85rem 1rem"
 };
 
@@ -420,12 +421,12 @@ const sectionBody: React.CSSProperties = {
   display: "grid",
   gap: "0.75rem",
   padding: "1rem",
-  borderTop: "1px solid #eef0f3"
+  borderTop: "1px solid var(--af-border)"
 };
 
 const inputStyle: React.CSSProperties = {
   padding: "0.5rem 0.65rem",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--af-border)",
   borderRadius: 8,
   fontSize: 14
 };
@@ -434,15 +435,16 @@ const fileModeRow: React.CSSProperties = {
   display: "flex",
   gap: "0.6rem",
   alignItems: "flex-start",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: "0.6rem 0.7rem"
+  border: "1px solid var(--af-border)",
+  borderRadius: 10,
+  padding: "0.6rem 0.7rem",
+  background: "#fbfdff"
 };
 
 const primaryButton: React.CSSProperties = {
   padding: "0.55rem 0.9rem",
-  border: "1px solid #1d4ed8",
-  background: "#1d4ed8",
+  border: "1px solid var(--af-blue)",
+  background: "var(--af-gradient)",
   color: "#fff",
   borderRadius: 8,
   fontSize: 14,
@@ -452,9 +454,9 @@ const primaryButton: React.CSSProperties = {
 
 const secondaryButton: React.CSSProperties = {
   padding: "0.5rem 0.85rem",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--af-border)",
   background: "#fff",
-  color: "#374151",
+  color: "var(--af-text)",
   borderRadius: 8,
   fontSize: 14,
   cursor: "pointer"

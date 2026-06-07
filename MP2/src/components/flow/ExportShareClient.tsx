@@ -182,10 +182,10 @@ export function ExportShareClient({ workspaceId }: { workspaceId: string }) {
 
 const button: React.CSSProperties = {
   padding: "0.5rem 0.85rem",
-  border: "1px solid #1d4ed8",
-  background: "#1d4ed8",
+  border: "1px solid var(--af-blue)",
+  background: "var(--af-gradient)",
   color: "#fff",
-  borderRadius: 8,
+  borderRadius: 10,
   fontSize: 14,
   cursor: "pointer"
 };
@@ -193,8 +193,8 @@ const button: React.CSSProperties = {
 const selectedButton: React.CSSProperties = {
   ...button,
   background: "#eef2ff",
-  color: "#1d4ed8",
-  boxShadow: "inset 0 0 0 2px #1d4ed8"
+  color: "var(--af-blue)",
+  boxShadow: "inset 0 0 0 2px var(--af-blue)"
 };
 
 const exportButtonPanel: React.CSSProperties = {
@@ -203,24 +203,24 @@ const exportButtonPanel: React.CSSProperties = {
   zIndex: 1,
   display: "grid",
   gap: "0.45rem",
-  background: "#fff",
+  background: "rgba(255,255,255,0.96)",
   paddingBottom: "0.5rem"
 };
 
 const secondaryButton: React.CSSProperties = {
   padding: "0.4rem 0.7rem",
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--af-border)",
   background: "#fff",
-  color: "#374151",
-  borderRadius: 8,
+  color: "var(--af-text)",
+  borderRadius: 10,
   fontSize: 13,
   cursor: "pointer"
 };
 
 const copyIconButton: React.CSSProperties = {
-  border: "1px solid #d1d5db",
+  border: "1px solid var(--af-border)",
   background: "#fff",
-  color: "#374151",
+  color: "var(--af-text)",
   borderRadius: 6,
   padding: "0.1rem 0.35rem",
   fontSize: 12,

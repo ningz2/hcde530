@@ -40,10 +40,10 @@ export function ExportShareMenu({ workspaceId }: { workspaceId: string }) {
 
 const trigger: React.CSSProperties = {
   padding: "0.5rem 0.85rem",
-  border: "1px solid #1d4ed8",
-  background: "#1d4ed8",
+  border: "1px solid var(--af-blue)",
+  background: "var(--af-gradient)",
   color: "#fff",
-  borderRadius: 8,
+  borderRadius: 10,
   fontSize: 14,
   cursor: "pointer",
   whiteSpace: "nowrap"
@@ -57,10 +57,11 @@ const popover: React.CSSProperties = {
   maxWidth: "90vw",
   maxHeight: "70vh",
   overflowY: "auto",
-  background: "#fff",
-  border: "1px solid #e5e7eb",
-  borderRadius: 12,
-  boxShadow: "0 10px 40px rgba(0,0,0,0.18)",
+  background: "rgba(255,255,255,0.96)",
+  border: "1px solid var(--af-border)",
+  borderRadius: 16,
+  boxShadow: "var(--af-shadow)",
+  backdropFilter: "blur(16px)",
   padding: "1rem",
   zIndex: 40
 };
