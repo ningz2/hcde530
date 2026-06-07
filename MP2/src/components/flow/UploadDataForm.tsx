@@ -16,7 +16,6 @@ Performance,"Loading was slow but the dashboard is clear",,P3`;
 type Method = "file" | "paste";
 type FileMode = "single" | "multiple";
 type LoadedFile = { name: string; content: string; codeCount: number };
-type SectionId = "project" | "rqs" | "data";
 
 /**
  * Estimate the number of codes in a file by counting data rows. CSV/TSV files
@@ -56,11 +55,6 @@ export function UploadDataForm({
   const [fileMode, setFileMode] = useState<FileMode>("single");
   const [files, setFiles] = useState<LoadedFile[]>([]);
   const [content, setContent] = useState("");
-  const [openSections, setOpenSections] = useState<Record<SectionId, boolean>>({
-    project: false,
-    rqs: false,
-    data: true
-  });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // When set, the privacy-check modal is shown for the just-created data.
@@ -119,10 +113,6 @@ export function UploadDataForm({
     // Content that looks like CSV (header + commas) is treated as CSV.
     if (/^[^\n]*,[^\n]*\n/.test(text)) return "CSV";
     return "PASTED_TEXT";
-  }
-
-  function toggleSection(section: SectionId) {
-    setOpenSections((prev) => ({ ...prev, [section]: !prev[section] }));
   }
 
   async function onSubmit(event: React.FormEvent) {
@@ -193,11 +183,9 @@ export function UploadDataForm({
     <form onSubmit={onSubmit} style={{ display: "grid", gap: "0.85rem", maxWidth: 720 }}>
       {mode === "new" && (
         <>
-          <CollapsibleSection
+          <FormSection
             title="Project details"
             description={name.trim() ? name.trim() : "Optional. Defaults to Untitled project."}
-            open={openSections.project}
-            onToggle={() => toggleSection("project")}
           >
             <label style={{ display: "grid", gap: "0.25rem" }}>
               <span>Project name</span>
@@ -208,17 +196,15 @@ export function UploadDataForm({
                 style={inputStyle}
               />
             </label>
-          </CollapsibleSection>
+          </FormSection>
 
-          <CollapsibleSection
+          <FormSection
             title="Research questions"
             description={
               researchQuestions.filter((q) => q.trim()).length > 0
                 ? `${researchQuestions.filter((q) => q.trim()).length} question(s) added`
                 : "Optional. Use this when you want the board organized by RQs."
             }
-            open={openSections.rqs}
-            onToggle={() => toggleSection("rqs")}
           >
             <div style={{ display: "grid", gap: "0.4rem" }}>
               <span style={{ fontSize: 12, color: "#6b7280" }}>
@@ -248,11 +234,11 @@ export function UploadDataForm({
                 + Add research question
               </button>
             </div>
-          </CollapsibleSection>
+          </FormSection>
         </>
       )}
 
-      <CollapsibleSection
+      <FormSection
         title="Data"
         description={
           method === "file"
@@ -263,8 +249,6 @@ export function UploadDataForm({
               ? `${countCodeRows(content)} pasted code(s)`
               : "Required. Upload files or paste code data."
         }
-        open={openSections.data}
-        onToggle={() => toggleSection("data")}
       >
         <div style={{ display: "grid", gap: "0.8rem" }}>
           <div style={{ display: "flex", gap: "1rem" }}>
@@ -373,7 +357,7 @@ export function UploadDataForm({
             </button>
           </div>
         </div>
-      </CollapsibleSection>
+      </FormSection>
 
       {error && <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>}
 
@@ -392,29 +376,24 @@ export function UploadDataForm({
   );
 }
 
-function CollapsibleSection({
+function FormSection({
   title,
   description,
-  open,
-  onToggle,
   children
 }: {
   title: string;
   description: string;
-  open: boolean;
-  onToggle: () => void;
   children: React.ReactNode;
 }) {
   return (
     <section style={sectionCard}>
-      <button type="button" onClick={onToggle} style={sectionHeader} aria-expanded={open}>
+      <div style={sectionHeader}>
         <span style={{ display: "grid", gap: "0.15rem", textAlign: "left" }}>
           <strong style={{ color: "#111827" }}>{title}</strong>
           <span style={{ color: "#6b7280", fontSize: 12 }}>{description}</span>
         </span>
-        <span style={{ color: "#6b7280", fontSize: 18 }}>{open ? "−" : "+"}</span>
-      </button>
-      {open && <div style={sectionBody}>{children}</div>}
+      </div>
+      <div style={sectionBody}>{children}</div>
     </section>
   );
 }
@@ -434,8 +413,7 @@ const sectionHeader: React.CSSProperties = {
   gap: "1rem",
   border: "none",
   background: "#f9fafb",
-  padding: "0.85rem 1rem",
-  cursor: "pointer"
+  padding: "0.85rem 1rem"
 };
 
 const sectionBody: React.CSSProperties = {
