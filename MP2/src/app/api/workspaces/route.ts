@@ -12,7 +12,7 @@ export async function GET() {
     const session = await getSessionContext();
     requireAuthenticated(session);
 
-    return ok({ workspaces: repo.listWorkspacesForUser(session.identity.userId) });
+    return ok({ workspaces: await repo.listWorkspacesForUser(session.identity.userId) });
   } catch (error) {
     return toErrorResponse(error, traceId);
   }
@@ -28,7 +28,7 @@ export async function POST(request: Request) {
     const input = await parseJsonBody(request, createWorkspaceSchema);
 
     // Creator becomes OWNER. Membership wiring is deferred; role is mocked via headers.
-    const workspace = repo.createWorkspace({
+    const workspace = await repo.createWorkspace({
       name: input.name,
       researchQuestion: input.researchQuestion,
       researchQuestions: input.researchQuestions,
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       createdByUserId: session.identity.userId
     });
 
-    repo.logActivity({
+    await repo.logActivity({
       workspaceId: workspace.id,
       actorUserId: session.identity.userId,
       action: "workspace_created",

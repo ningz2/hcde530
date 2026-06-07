@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   const session = await getSessionContext();
   const projects = session.identity
-    ? repo.listWorkspacesForUser(session.identity.userId).map((w) => ({ id: w.id, name: w.name }))
+    ? (await repo.listWorkspacesForUser(session.identity.userId)).map((w) => ({ id: w.id, name: w.name }))
     : [];
 
   return (

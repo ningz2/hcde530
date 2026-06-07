@@ -19,13 +19,13 @@ export async function POST(_: Request, { params }: RouteProps) {
     const { workspaceId } = await params;
     const { session } = await authorizeWorkspaceAction(workspaceId, "board.edit");
 
-    const snapshot = repo.popSnapshot(workspaceId, session.identity.userId);
+    const snapshot = await repo.popSnapshot(workspaceId, session.identity.userId);
     if (!snapshot) {
       throw new ApiError("NOT_FOUND", "Nothing to undo in this session.", 404);
     }
 
     if (snapshot.entityType === "THEME" && snapshot.action === "UPDATE") {
-      repo.updateTheme(snapshot.entityId, {
+      await repo.updateTheme(snapshot.entityId, {
         title: snapshot.previous.title as string,
         description: snapshot.previous.description as string | undefined
       });

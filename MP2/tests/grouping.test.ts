@@ -5,13 +5,15 @@ import { getBoardView } from "@/domain/services/boardView";
 import { repo } from "@/lib/repo/store";
 
 async function seed(researchQuestions?: string[]): Promise<string> {
-  const workspaceId = repo.createWorkspace({
-    name: "WS",
-    researchQuestions,
-    defaultHierarchyDepth: 2,
-    groupingDirection: "BOTTOM_UP",
-    createdByUserId: "u1"
-  }).id;
+  const workspaceId = (
+    await repo.createWorkspace({
+      name: "WS",
+      researchQuestions,
+      defaultHierarchyDepth: 2,
+      groupingDirection: "BOTTOM_UP",
+      createdByUserId: "u1"
+    })
+  ).id;
 
   await extractAndStore({
     workspaceId,
@@ -30,13 +32,15 @@ async function seed(researchQuestions?: string[]): Promise<string> {
 }
 
 describe("AI-empowered grouping", () => {
-  beforeEach(() => repo.reset());
+  beforeEach(async () => {
+    await repo.reset();
+  });
 
   it("creates named leaf groups (GROUPS mode)", async () => {
     const workspaceId = await seed();
     await generateBoard({ workspaceId, boardName: "Board", hierarchyMode: "GROUPS", groupGranularity: 3 });
 
-    const view = getBoardView(workspaceId);
+    const view = await getBoardView(workspaceId);
     expect(view.board?.hierarchyMode).toBe("GROUPS");
     expect(view.tree.length).toBe(3);
     // Names are not the generic placeholder; they reflect keywords.
@@ -52,12 +56,14 @@ describe("AI-empowered grouping", () => {
   });
 
   it("uses quote and memo context in assignment rationales", async () => {
-    const workspaceId = repo.createWorkspace({
-      name: "WS",
-      defaultHierarchyDepth: 2,
-      groupingDirection: "BOTTOM_UP",
-      createdByUserId: "u1"
-    }).id;
+    const workspaceId = (
+      await repo.createWorkspace({
+        name: "WS",
+        defaultHierarchyDepth: 2,
+        groupingDirection: "BOTTOM_UP",
+        createdByUserId: "u1"
+      })
+    ).id;
 
     await extractAndStore({
       workspaceId,
@@ -68,7 +74,9 @@ describe("AI-empowered grouping", () => {
     });
 
     await generateBoard({ workspaceId, boardName: "Board", hierarchyMode: "GROUPS", groupGranularity: 2 });
-    const rationales = getBoardView(workspaceId).themes.flatMap((t) => t.assignments).map((a) => a.rationale);
+    const rationales = (await getBoardView(workspaceId)).themes
+      .flatMap((t) => t.assignments)
+      .map((a) => a.rationale);
 
     expect(rationales.join(" ")).toContain("the quote");
     expect(rationales.join(" ")).toContain("memo");
@@ -85,7 +93,7 @@ describe("AI-empowered grouping", () => {
       themeGranularity: 2
     });
 
-    const view = getBoardView(workspaceId);
+    const view = await getBoardView(workspaceId);
     expect(view.tree.length).toBe(2); // two top-level themes
     expect(view.tree.every((n) => n.children.length > 0)).toBe(true);
     // Leaf groups (with codes) total to all assignments.
@@ -103,7 +111,7 @@ describe("AI-empowered grouping", () => {
       themeGranularity: 4
     });
 
-    const view = getBoardView(workspaceId);
+    const view = await getBoardView(workspaceId);
     expect(view.board?.groupGranularity).toBe(4);
     expect(view.board?.themeGranularity).toBeLessThan(4);
     expect(view.tree.length).toBeLessThan(view.themes.length);
@@ -119,7 +127,7 @@ describe("AI-empowered grouping", () => {
       themeGranularity: 2
     });
 
-    const view = getBoardView(workspaceId);
+    const view = await getBoardView(workspaceId);
     const rqTitles = view.tree.map((n) => n.title);
     expect(rqTitles).toContain("How do users experience onboarding?");
     expect(rqTitles).toContain("What blocks purchase decisions?");

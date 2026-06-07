@@ -3,8 +3,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 enum WorkspaceRole {
@@ -75,8 +76,20 @@ enum ExportFormat {
 
 enum SnapshotEntityType {
   QUOTE
+  CODE
   THEME
   BOARD
+}
+
+enum UserProvider {
+  EMAIL_PASSWORD
+  GOOGLE
+}
+
+enum HierarchyMode {
+  GROUPS
+  THEMES
+  RQS
 }
 
 enum SnapshotAction {
@@ -102,9 +115,11 @@ model User {
   authUserId         String                @unique
   email              String                @unique
   displayName        String?
+  provider           UserProvider          @default(EMAIL_PASSWORD)
   createdAt          DateTime              @default(now())
   updatedAt          DateTime              @updatedAt
   memberships        WorkspaceMembership[]
+  createdWorkspaces  Workspace[]           @relation("WorkspaceCreator")
   createdLinks       ShareLink[]
   activityLogs       ActivityLog[]
   sessions           UserSession[]
@@ -112,18 +127,22 @@ model User {
   ingestionUploads   IngestionUpload[]
   groupingStrategies GroupingStrategy[]
   exportJobs         ExportJob[]
+  undoSnapshots      UndoSnapshot[]
 }
 
 model Workspace {
   id                    String                @id @default(cuid())
   name                  String
   researchQuestion      String?
+  researchQuestions     Json?
   projectGoal           String?
   projectContext        String?
   defaultHierarchyDepth Int                   @default(2)
   groupingDirection     GroupingDirection     @default(BOTTOM_UP)
+  createdByUserId       String
   createdAt             DateTime              @default(now())
   updatedAt             DateTime              @updatedAt
+  creator               User                  @relation("WorkspaceCreator", fields: [createdByUserId], references: [id], onDelete: Cascade)
   memberships           WorkspaceMembership[]
   uploads               IngestionUpload[]
   strategies            GroupingStrategy[]
@@ -132,9 +151,11 @@ model Workspace {
   activityLogs          ActivityLog[]
   participants          Participant[]
   quotes                Quote[]
+  codes                 Code[]
   exportJobs            ExportJob[]
   userSessions          UserSession[]
   sessionSnapshots      SessionSnapshot[]
+  undoSnapshots         UndoSnapshot[]
 }
 
 model WorkspaceMembership {
@@ -187,6 +208,7 @@ model IngestionUpload {
   workspace           Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   submittedBy         User?              @relation(fields: [submittedByUserId], references: [id], onDelete: SetNull)
   quotes              Quote[]
+  codes               Code[]
 }
 
 model Participant {
@@ -199,9 +221,31 @@ model Participant {
   updatedAt        DateTime  @updatedAt
   workspace        Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   quotes           Quote[]
+  codes            Code[]
 
   @@unique([workspaceId, sourceLabel])
   @@unique([workspaceId, anonymizedLabel])
+}
+
+model Code {
+  id            String            @id @default(cuid())
+  workspaceId   String
+  uploadId      String
+  participantId String
+  code          String
+  quote         String?
+  memo          String?
+  sourceRef     String?
+  piiMasked     Boolean           @default(false)
+  state         QuoteState        @default(ACTIVE)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  workspace     Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  upload        IngestionUpload   @relation(fields: [uploadId], references: [id], onDelete: Cascade)
+  participant   Participant       @relation(fields: [participantId], references: [id], onDelete: Cascade)
+  assignments   CodeAssignment[]
+
+  @@index([workspaceId, state])
 }
 
 model Quote {
@@ -240,14 +284,17 @@ model GroupingStrategy {
 }
 
 model AffinityBoard {
-  id             String            @id @default(cuid())
-  workspaceId    String
-  strategyId     String?
-  name           String
-  hierarchyDepth Int
-  status         JobStatus         @default(QUEUED)
-  createdAt      DateTime          @default(now())
-  updatedAt      DateTime          @updatedAt
+  id               String            @id @default(cuid())
+  workspaceId      String
+  strategyId       String?
+  name             String
+  hierarchyDepth   Int
+  hierarchyMode    HierarchyMode     @default(GROUPS)
+  groupGranularity Int               @default(4)
+  themeGranularity Int               @default(2)
+  status           JobStatus         @default(QUEUED)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
   workspace      Workspace         @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   strategy       GroupingStrategy? @relation(fields: [strategyId], references: [id], onDelete: SetNull)
   themes         Theme[]
@@ -274,8 +321,22 @@ model Theme {
   parentTheme      Theme?            @relation("ThemeHierarchy", fields: [parentThemeId], references: [id], onDelete: SetNull)
   childThemes      Theme[]           @relation("ThemeHierarchy")
   assignments      QuoteAssignment[]
+  codeAssignments  CodeAssignment[]
 
   @@index([boardId, level])
+}
+
+model CodeAssignment {
+  id        String   @id @default(cuid())
+  codeId    String
+  themeId   String
+  rationale String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  code      Code     @relation(fields: [codeId], references: [id], onDelete: Cascade)
+  theme     Theme    @relation(fields: [themeId], references: [id], onDelete: Cascade)
+
+  @@unique([codeId, themeId])
 }
 
 model QuoteAssignment {
@@ -296,10 +357,13 @@ model ExportJob {
   workspaceId   String
   boardId       String
   requestedById String?
-  format        ExportFormat
-  status        JobStatus     @default(QUEUED)
-  artifactUrl   String?
-  createdAt     DateTime      @default(now())
+  format            ExportFormat
+  status            JobStatus     @default(QUEUED)
+  artifactUrl       String?
+  artifactPreview   String?
+  artifactMimeType  String?
+  artifactFilename  String?
+  createdAt         DateTime      @default(now())
   updatedAt     DateTime      @updatedAt
   workspace     Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   board         AffinityBoard @relation(fields: [boardId], references: [id], onDelete: Cascade)
@@ -350,4 +414,20 @@ model ActivityLog {
   actor       User?          @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([workspaceId, createdAt])
+}
+
+model UndoSnapshot {
+  id          String             @id @default(cuid())
+  workspaceId String
+  userId      String
+  entityType  SnapshotEntityType
+  entityId    String
+  action      SnapshotAction
+  previous    Json
+  label       String
+  createdAt   DateTime           @default(now())
+  workspace   Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  user        User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId, userId, createdAt])
 }

@@ -34,7 +34,7 @@ export async function authorizeWorkspaceAction(
   const role = requireWorkspaceRole(session);
   assertRoleCan(action, role);
 
-  const workspace = repo.getWorkspace(workspaceId);
+  const workspace = await repo.getWorkspace(workspaceId);
   if (!workspace) {
     throw new ApiError("NOT_FOUND", "Workspace not found.", 404);
   }

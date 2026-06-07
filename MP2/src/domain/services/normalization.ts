@@ -43,7 +43,7 @@ export async function extractAndStore(params: {
     filename: params.filename
   });
 
-  const upload = repo.createUpload({
+  const upload = await repo.createUpload({
     workspaceId: params.workspaceId,
     submittedByUserId: params.submittedByUserId,
     sourceType: params.sourceType,
@@ -53,7 +53,7 @@ export async function extractAndStore(params: {
     rawRetained: false
   });
 
-  repo.logActivity({
+  await repo.logActivity({
     workspaceId: params.workspaceId,
     actorUserId: params.submittedByUserId,
     action: "raw_source_discarded",
@@ -74,7 +74,7 @@ export async function extractAndStore(params: {
         ? item.participantLabel
         : fileParticipant ?? item.participantLabel;
 
-    const participant = repo.ensureParticipant({
+    const participant = await repo.ensureParticipant({
       workspaceId: params.workspaceId,
       sourceLabel: label,
       anonymizedLabel: label,
@@ -83,7 +83,7 @@ export async function extractAndStore(params: {
 
     participantTokens.set(participant.anonymizedLabel, participant.colorToken);
 
-    repo.createCode({
+    await repo.createCode({
       workspaceId: params.workspaceId,
       uploadId: upload.id,
       participantId: participant.id,
@@ -118,11 +118,11 @@ function participantFromFilename(filename?: string): string | undefined {
  * Step 2 of the pipeline: apply the user's anonymization decision to the stored
  * quotes. Default product behavior is masking ON; the user may explicitly skip.
  */
-export function applyAnonymization(params: {
+export async function applyAnonymization(params: {
   workspaceId: string;
   applyMasking: boolean;
-}): AnonymizationResult {
-  const codes = repo.listCodes(params.workspaceId);
+}): Promise<AnonymizationResult> {
+  const codes = await repo.listCodes(params.workspaceId);
   const notes = new Set<string>();
   const categories = new Set<string>();
   let maskedCount = 0;
@@ -143,7 +143,7 @@ export function applyAnonymization(params: {
         (maskedQuote ? maskedQuote.text !== item.quote : false) ||
         (maskedMemo ? maskedMemo.text !== item.memo : false);
 
-      repo.updateCode(item.id, {
+      await repo.updateCode(item.id, {
         code: maskedCode.text,
         quote: maskedQuote?.text ?? item.quote,
         memo: maskedMemo?.text ?? item.memo,
@@ -163,14 +163,14 @@ export function applyAnonymization(params: {
     notes.add("Masking skipped: codes stored as provided.");
   }
 
-  for (const upload of repo.listUploads(params.workspaceId)) {
-    repo.updateUpload(upload.id, {
+  for (const upload of await repo.listUploads(params.workspaceId)) {
+    await repo.updateUpload(upload.id, {
       anonymizationState: params.applyMasking ? "APPLIED" : "SKIPPED",
       anonymizationOptOut: !params.applyMasking
     });
   }
 
-  repo.logActivity({
+  await repo.logActivity({
     workspaceId: params.workspaceId,
     action: params.applyMasking ? "anonymization_applied" : "anonymization_skipped",
     targetType: "Workspace",

@@ -18,7 +18,7 @@ export async function GET(_: Request, { params }: RouteProps) {
     await authorizeWorkspaceAction(workspaceId, "share.manage");
 
     // Never return token hashes; only safe metadata.
-    const links = repo.listShareLinks(workspaceId).map((l) => ({
+    const links = (await repo.listShareLinks(workspaceId)).map((l) => ({
       id: l.id,
       scope: l.scope,
       status: l.status,
@@ -46,7 +46,7 @@ export async function POST(request: Request, { params }: RouteProps) {
     const rawToken = randomUUID();
     const tokenHash = createHash("sha256").update(rawToken).digest("hex");
 
-    const link = repo.createShareLink({
+    const link = await repo.createShareLink({
       workspaceId,
       boardId: input.boardId,
       createdByUserId: session.identity.userId,
@@ -57,7 +57,7 @@ export async function POST(request: Request, { params }: RouteProps) {
       allowExport: input.allowExport
     });
 
-    repo.logActivity({
+    await repo.logActivity({
       workspaceId,
       actorUserId: session.identity.userId,
       action: "share_link_created",

@@ -10,7 +10,7 @@ export async function POST(request: Request) {
 
   try {
     const input = await parseJsonBody(request, signInSchema);
-    const user = repo.upsertUser({
+    const user = await repo.upsertUser({
       email: input.email,
       displayName: input.displayName || input.email.split("@")[0],
       provider: input.provider

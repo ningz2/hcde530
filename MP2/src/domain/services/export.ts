@@ -12,18 +12,18 @@ import { repo, type ExportFormat, type ExportJobRecord } from "@/lib/repo/store"
  * All three are available to every workspace role; anonymous view-only links are
  * blocked at the route layer.
  */
-export function requestExport(params: {
+export async function requestExport(params: {
   workspaceId: string;
   requestedByUserId?: string;
   format: ExportFormat;
-}): ExportJobRecord {
-  const board = repo.latestBoard(params.workspaceId);
+}): Promise<ExportJobRecord> {
+  const board = await repo.latestBoard(params.workspaceId);
   if (!board) {
     throw new ApiError("NOT_FOUND", "No board to export. Generate a board first.", 404);
   }
 
-  const artifact = buildArtifact(params.workspaceId, params.format);
-  const job = repo.createExportJob({
+  const artifact = await buildArtifact(params.workspaceId, params.format);
+  const job = await repo.createExportJob({
     workspaceId: params.workspaceId,
     boardId: board.id,
     requestedByUserId: params.requestedByUserId,
@@ -33,37 +33,42 @@ export function requestExport(params: {
     artifactMimeType: artifact.mimeType,
     artifactFilename: artifact.filename
   });
-  logExport(params.workspaceId, params.requestedByUserId, job.id, params.format);
+  await logExport(params.workspaceId, params.requestedByUserId, job.id, params.format);
   return job;
 }
 
-function buildArtifact(
+async function buildArtifact(
   workspaceId: string,
   format: ExportFormat
-): { content: string; mimeType: string; filename: string } {
+): Promise<{ content: string; mimeType: string; filename: string }> {
   if (format === "CSV") {
     return {
-      content: buildBoardCsv(workspaceId),
+      content: await buildBoardCsv(workspaceId),
       mimeType: "text/csv;charset=utf-8",
       filename: "affinity-board.csv"
     };
   }
   if (format === "FIGJAM") {
     return {
-      content: buildFigJamCsv(workspaceId),
+      content: await buildFigJamCsv(workspaceId),
       mimeType: "text/csv;charset=utf-8",
       filename: "figjam-sticky-notes.csv"
     };
   }
   return {
-    content: buildPrintablePdfHtml(workspaceId),
+    content: await buildPrintablePdfHtml(workspaceId),
     mimeType: "text/html;charset=utf-8",
     filename: "affinity-board-printable.html"
   };
 }
 
-function logExport(workspaceId: string, userId: string | undefined, jobId: string, format: string): void {
-  repo.logActivity({
+async function logExport(
+  workspaceId: string,
+  userId: string | undefined,
+  jobId: string,
+  format: string
+): Promise<void> {
+  await repo.logActivity({
     workspaceId,
     actorUserId: userId,
     action: `export_${format.toLowerCase()}`,
@@ -72,8 +77,8 @@ function logExport(workspaceId: string, userId: string | undefined, jobId: strin
   });
 }
 
-export function buildBoardCsv(workspaceId: string): string {
-  const view = getBoardView(workspaceId);
+export async function buildBoardCsv(workspaceId: string): Promise<string> {
+  const view = await getBoardView(workspaceId);
   const rows: string[][] = [
     ["theme", "mention_count", "participant", "code", "quote", "memo", "rationale"]
   ];
@@ -95,8 +100,8 @@ export function buildBoardCsv(workspaceId: string): string {
   return rows.map((row) => row.map(csvCell).join(",")).join("\n");
 }
 
-export function buildFigJamCsv(workspaceId: string): string {
-  const view = getBoardView(workspaceId);
+export async function buildFigJamCsv(workspaceId: string): Promise<string> {
+  const view = await getBoardView(workspaceId);
   const rows: string[][] = [
     ["section", "group", "sticky_note", "participant", "color", "quote", "memo", "rationale", "source"]
   ];
@@ -131,8 +136,8 @@ function collectFigJamRows(
   }
 }
 
-export function buildPrintablePdfHtml(workspaceId: string): string {
-  const view = getBoardView(workspaceId);
+export async function buildPrintablePdfHtml(workspaceId: string): Promise<string> {
+  const view = await getBoardView(workspaceId);
   const body = view.themes
     .map(
       (theme) => `

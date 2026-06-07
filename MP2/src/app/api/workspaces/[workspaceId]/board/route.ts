@@ -25,24 +25,27 @@ export async function GET(_: Request, { params }: RouteProps) {
     const session = await getSessionContext();
 
     if (session.isAnonymousShare) {
-      if (!repo.getWorkspace(workspaceId)) {
+      if (!(await repo.getWorkspace(workspaceId))) {
         throw new ApiError("NOT_FOUND", "Workspace not found.", 404);
       }
 
       const tokenHash = createHash("sha256")
         .update(session.shareToken ?? "")
         .digest("hex");
-      const link = repo.findActiveShareLink(workspaceId, tokenHash);
+      const link = await repo.findActiveShareLink(workspaceId, tokenHash);
 
       if (!link) {
         throw new ApiError("FORBIDDEN", "Invalid or expired share link.", 403);
       }
 
-      return ok({ view: getBoardView(workspaceId, { redactUnmasked: true }), access: "ANONYMOUS_VIEW_ONLY" });
+      return ok({
+        view: await getBoardView(workspaceId, { redactUnmasked: true }),
+        access: "ANONYMOUS_VIEW_ONLY"
+      });
     }
 
     await authorizeWorkspaceAction(workspaceId, "workspace.read");
-    return ok({ view: getBoardView(workspaceId), access: "MEMBER" });
+    return ok({ view: await getBoardView(workspaceId), access: "MEMBER" });
   } catch (error) {
     return toErrorResponse(error, traceId);
   }

@@ -12,7 +12,7 @@ type IngestPageProps = {
 
 export default async function IngestPage({ params }: IngestPageProps) {
   const { workspaceId } = await params;
-  if (!repo.getWorkspace(workspaceId)) {
+  if (!(await repo.getWorkspace(workspaceId))) {
     notFound();
   }
 

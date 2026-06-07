@@ -6,14 +6,16 @@ import { repo } from "@/lib/repo/store";
 describe("ingest pipeline (extract -> consent -> mask)", () => {
   let workspaceId: string;
 
-  beforeEach(() => {
-    repo.reset();
-    workspaceId = repo.createWorkspace({
-      name: "Test",
-      defaultHierarchyDepth: 2,
-      groupingDirection: "BOTTOM_UP",
-      createdByUserId: "u1"
-    }).id;
+  beforeEach(async () => {
+    await repo.reset();
+    workspaceId = (
+      await repo.createWorkspace({
+        name: "Test",
+        defaultHierarchyDepth: 2,
+        groupingDirection: "BOTTOM_UP",
+        createdByUserId: "u1"
+      })
+    ).id;
   });
 
   it("extracts and stores codes unmasked and pending consent, never retaining raw", async () => {
@@ -28,16 +30,16 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
 
     expect(result.codeCount).toBe(2);
 
-    const codes = repo.listCodes(workspaceId);
+    const codes = await repo.listCodes(workspaceId);
     expect(codes.every((c) => !c.piiMasked)).toBe(true);
     // Raw identifiers are still present (in the quote field) until consent is applied.
     expect(codes.some((c) => (c.quote ?? "").includes("jane@acme.com"))).toBe(true);
     expect(codes.some((c) => c.code === "Onboarding friction")).toBe(true);
 
-    const upload = repo.listUploads(workspaceId)[0];
+    const upload = (await repo.listUploads(workspaceId))[0];
     expect(upload.rawRetained).toBe(false);
     expect(upload.anonymizationState).toBe("PENDING_CONSENT");
-    expect(repo.listActivity(workspaceId).some((a) => a.action === "raw_source_discarded")).toBe(true);
+    expect((await repo.listActivity(workspaceId)).some((a) => a.action === "raw_source_discarded")).toBe(true);
   });
 
   it("masks code/quote/memo when consent applies masking", async () => {
@@ -48,16 +50,16 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       payload: 'code,quote,memo\nSupport,"Contact jane@acme.com","Spoke with Miguel"'
     });
 
-    const result = applyAnonymization({ workspaceId, applyMasking: true });
+    const result = await applyAnonymization({ workspaceId, applyMasking: true });
     expect(result.applied).toBe(true);
     expect(result.maskedCount).toBe(1);
     expect(result.categories).toContain("email");
 
-    const code = repo.listCodes(workspaceId)[0];
+    const code = (await repo.listCodes(workspaceId))[0];
     expect(code.piiMasked).toBe(true);
     expect(code.quote).not.toContain("jane@acme.com");
     expect(code.memo).not.toContain("Miguel");
-    expect(repo.listUploads(workspaceId)[0].anonymizationState).toBe("APPLIED");
+    expect((await repo.listUploads(workspaceId))[0].anonymizationState).toBe("APPLIED");
   });
 
   it("does not name-mask the code label, only direct identifiers", async () => {
@@ -68,9 +70,9 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       payload: "Customer Support frustration\nUser Trust concerns"
     });
 
-    applyAnonymization({ workspaceId, applyMasking: true });
+    await applyAnonymization({ workspaceId, applyMasking: true });
 
-    const codes = repo.listCodes(workspaceId).map((c) => c.code);
+    const codes = (await repo.listCodes(workspaceId)).map((c) => c.code);
     expect(codes).toContain("Customer Support frustration");
     expect(codes).toContain("User Trust concerns");
     expect(codes.join(" ")).not.toContain("[NAME]");
@@ -85,7 +87,7 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
     });
 
     expect(result.codeCount).toBe(2);
-    const codes = repo.listCodes(workspaceId).map((c) => c.code);
+    const codes = (await repo.listCodes(workspaceId)).map((c) => c.code);
     expect(codes).toContain("onboarding friction");
     expect(codes).toContain("pricing unclear");
   });
@@ -100,7 +102,7 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
     });
 
     expect(result.codeCount).toBe(2);
-    const codes = repo.listCodes(workspaceId).map((c) => c.code);
+    const codes = (await repo.listCodes(workspaceId)).map((c) => c.code);
     expect(codes).toContain("Onboarding was confusing");
   });
 
@@ -113,7 +115,7 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       filename: "alice.csv"
     });
 
-    const labels = repo.listParticipants(workspaceId).map((p) => p.anonymizedLabel);
+    const labels = (await repo.listParticipants(workspaceId)).map((p) => p.anonymizedLabel);
     expect(labels).toContain("alice");
     expect(labels).not.toContain("Unassigned");
   });
@@ -126,7 +128,7 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       payload: "Onboarding friction\nPricing confusion\nPerformance"
     });
     expect(result.codeCount).toBe(3);
-    expect(repo.listCodes(workspaceId).map((c) => c.code)).toContain("Pricing confusion");
+    expect((await repo.listCodes(workspaceId)).map((c) => c.code)).toContain("Pricing confusion");
   });
 
   it("keeps raw identifiers when the user skips masking", async () => {
@@ -137,13 +139,13 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       payload: 'code,quote\nSupport,"Contact jane@acme.com about this"'
     });
 
-    const result = applyAnonymization({ workspaceId, applyMasking: false });
+    const result = await applyAnonymization({ workspaceId, applyMasking: false });
     expect(result.applied).toBe(false);
 
-    const code = repo.listCodes(workspaceId)[0];
+    const code = (await repo.listCodes(workspaceId))[0];
     expect(code.piiMasked).toBe(false);
     expect(code.quote).toContain("jane@acme.com");
-    expect(repo.listUploads(workspaceId)[0].anonymizationState).toBe("SKIPPED");
+    expect((await repo.listUploads(workspaceId))[0].anonymizationState).toBe("SKIPPED");
   });
 
   it("assigns stable participant colors across re-ingestion", async () => {
@@ -153,7 +155,7 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       sourceType: "CSV",
       payload: "code,participant\nFirst code,P1"
     });
-    const firstToken = repo.listParticipants(workspaceId).find((p) => p.sourceLabel === "P1")?.colorToken;
+    const firstToken = (await repo.listParticipants(workspaceId)).find((p) => p.sourceLabel === "P1")?.colorToken;
 
     await extractAndStore({
       workspaceId,
@@ -161,7 +163,7 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
       sourceType: "CSV",
       payload: "code,participant\nSecond code,P1"
     });
-    const participants = repo.listParticipants(workspaceId).filter((p) => p.sourceLabel === "P1");
+    const participants = (await repo.listParticipants(workspaceId)).filter((p) => p.sourceLabel === "P1");
 
     expect(participants).toHaveLength(1);
     expect(participants[0].colorToken).toBe(firstToken);
@@ -170,32 +172,34 @@ describe("ingest pipeline (extract -> consent -> mask)", () => {
 
 describe("deleteWorkspace", () => {
   it("removes the workspace and its codes", async () => {
-    repo.reset();
-    const ws = repo.createWorkspace({
-      name: "Doomed",
-      defaultHierarchyDepth: 2,
-      groupingDirection: "BOTTOM_UP",
-      createdByUserId: "u1"
-    }).id;
+    await repo.reset();
+    const ws = (
+      await repo.createWorkspace({
+        name: "Doomed",
+        defaultHierarchyDepth: 2,
+        groupingDirection: "BOTTOM_UP",
+        createdByUserId: "u1"
+      })
+    ).id;
     await extractAndStore({
       workspaceId: ws,
       submittedByUserId: "u1",
       sourceType: "PASTED_TEXT",
       payload: "First code\nSecond code"
     });
-    expect(repo.listCodes(ws)).toHaveLength(2);
+    expect(await repo.listCodes(ws)).toHaveLength(2);
 
-    const deleted = repo.deleteWorkspace(ws);
+    const deleted = await repo.deleteWorkspace(ws);
 
     expect(deleted).toBe(true);
-    expect(repo.getWorkspace(ws)).toBeUndefined();
-    expect(repo.listCodes(ws)).toHaveLength(0);
-    expect(repo.listWorkspaces().some((w) => w.id === ws)).toBe(false);
+    expect(await repo.getWorkspace(ws)).toBeUndefined();
+    expect(await repo.listCodes(ws)).toHaveLength(0);
+    expect((await repo.listWorkspaces()).some((w) => w.id === ws)).toBe(false);
   });
 
-  it("returns false for an unknown workspace", () => {
-    repo.reset();
-    expect(repo.deleteWorkspace("does-not-exist")).toBe(false);
+  it("returns false for an unknown workspace", async () => {
+    await repo.reset();
+    expect(await repo.deleteWorkspace("does-not-exist")).toBe(false);
   });
 });
 

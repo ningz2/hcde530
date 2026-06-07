@@ -14,7 +14,7 @@ export default async function WorkspaceLayout({ children, params }: WorkspaceLay
   if (!session.identity) {
     redirect("/login");
   }
-  const workspace = repo.getWorkspace(workspaceId);
+  const workspace = await repo.getWorkspace(workspaceId);
   if (!workspace || workspace.createdByUserId !== session.identity.userId) {
     notFound();
   }

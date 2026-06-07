@@ -65,13 +65,16 @@ const REDACTED = "[hidden: contains unmasked identifiers]";
  * stored without anonymization is hidden so raw identifiers are never exposed
  * through a view-only link.
  */
-export function getBoardView(workspaceId: string, options?: { redactUnmasked?: boolean }): BoardView {
+export async function getBoardView(
+  workspaceId: string,
+  options?: { redactUnmasked?: boolean }
+): Promise<BoardView> {
   const redactUnmasked = options?.redactUnmasked ?? false;
-  const workspace = repo.getWorkspace(workspaceId);
-  const codes = repo.listCodes(workspaceId);
-  const participants = new Map(repo.listParticipants(workspaceId).map((p) => [p.id, p]));
+  const workspace = await repo.getWorkspace(workspaceId);
+  const codes = await repo.listCodes(workspaceId);
+  const participants = new Map((await repo.listParticipants(workspaceId)).map((p) => [p.id, p]));
   const codeById = new Map(codes.map((c) => [c.id, c]));
-  const board = repo.latestBoard(workspaceId);
+  const board = await repo.latestBoard(workspaceId);
 
   if (!board) {
     return {
@@ -83,12 +86,14 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
     };
   }
 
-  const allThemes = repo.listThemes(board.id);
-
-  const assignmentsFor = (themeId: string): BoardAssignmentView[] =>
-    repo
-      .listAssignmentsByTheme(themeId)
-      .map((assignment): BoardAssignmentView | undefined => {
+  const allThemes = await repo.listThemes(board.id);
+  const assignmentsByTheme = new Map<string, BoardAssignmentView[]>();
+  for (const theme of allThemes) {
+    const assignments = await repo.listAssignmentsByTheme(theme.id);
+    assignmentsByTheme.set(
+      theme.id,
+      assignments
+        .map((assignment): BoardAssignmentView | undefined => {
         const item = codeById.get(assignment.codeId);
         if (!item) return undefined;
         const participant = participants.get(item.participantId);
@@ -104,8 +109,12 @@ export function getBoardView(workspaceId: string, options?: { redactUnmasked?: b
           participantLabel: participant?.anonymizedLabel ?? "Unknown",
           participantHex: hexForToken(participant?.colorToken ?? "")
         };
-      })
-      .filter((a): a is BoardAssignmentView => a !== undefined);
+        })
+        .filter((a): a is BoardAssignmentView => a !== undefined)
+    );
+  }
+
+  const assignmentsFor = (themeId: string): BoardAssignmentView[] => assignmentsByTheme.get(themeId) ?? [];
 
   const childrenOf = new Map<string | undefined, ThemeRecord[]>();
   for (const theme of allThemes) {

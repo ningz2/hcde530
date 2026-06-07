@@ -18,7 +18,7 @@ export async function POST(request: Request, { params }: RouteProps) {
 
     const input = await parseJsonBody(request, memberInviteSchema);
 
-    repo.logActivity({
+    await repo.logActivity({
       workspaceId,
       actorUserId: session.identity.userId,
       action: "member_invited",

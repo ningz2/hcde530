@@ -17,7 +17,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const { workspaceId, themeId } = await params;
     const { session } = await authorizeWorkspaceAction(workspaceId, "board.edit");
 
-    const theme = repo.getTheme(themeId);
+    const theme = await repo.getTheme(themeId);
     if (!theme) {
       throw new ApiError("NOT_FOUND", "Theme not found.", 404);
     }
@@ -25,7 +25,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
     const input = await parseJsonBody(request, themeUpdateSchema);
 
     // Capture the prior value before mutating so the per-user-session undo can revert it.
-    repo.pushSnapshot({
+    await repo.pushSnapshot({
       workspaceId,
       userId: session.identity.userId,
       entityType: "THEME",
@@ -35,7 +35,7 @@ export async function PATCH(request: Request, { params }: RouteProps) {
       label: `Renamed theme "${theme.title}"`
     });
 
-    const updated = repo.updateTheme(themeId, {
+    const updated = await repo.updateTheme(themeId, {
       title: input.title,
       description: input.description
     });

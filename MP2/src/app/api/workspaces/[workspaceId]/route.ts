@@ -15,9 +15,9 @@ export async function DELETE(_request: Request, { params }: RouteProps) {
     // Only OWNER may delete a project (workspace.delete in the access matrix).
     const { session } = await authorizeWorkspaceAction(workspaceId, "workspace.delete");
 
-    repo.deleteWorkspace(workspaceId);
+    await repo.deleteWorkspace(workspaceId);
 
-    repo.logActivity({
+    await repo.logActivity({
       workspaceId,
       actorUserId: session.identity.userId,
       action: "workspace_deleted",

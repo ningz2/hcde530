@@ -27,7 +27,7 @@ export async function POST(request: Request, { params }: RouteProps) {
       themeGranularity: input.themeGranularity
     });
 
-    repo.logActivity({
+    await repo.logActivity({
       workspaceId,
       actorUserId: session.identity.userId,
       action: "board_generated",

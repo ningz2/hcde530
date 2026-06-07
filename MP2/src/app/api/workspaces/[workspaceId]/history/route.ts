@@ -14,7 +14,7 @@ export async function GET(_: Request, { params }: RouteProps) {
     const { workspaceId } = await params;
     const { session } = await authorizeWorkspaceAction(workspaceId, "workspace.read");
 
-    const snapshots = repo.listSnapshots(workspaceId, session.identity.userId);
+    const snapshots = await repo.listSnapshots(workspaceId, session.identity.userId);
 
     return ok({
       workspaceId,

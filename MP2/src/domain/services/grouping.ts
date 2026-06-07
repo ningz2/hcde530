@@ -112,10 +112,12 @@ async function resolveNames(
  */
 export async function generateBoard(params: GenerateBoardParams): Promise<GenerateBoardResult> {
   const mode: HierarchyMode = params.hierarchyMode ?? "GROUPS";
-  const codes = repo.listCodes(params.workspaceId).sort((a, b) => a.createdAt.localeCompare(b.createdAt));
-  const workspace = repo.getWorkspace(params.workspaceId);
+  const codes = (await repo.listCodes(params.workspaceId)).sort((a, b) =>
+    a.createdAt.localeCompare(b.createdAt)
+  );
+  const workspace = await repo.getWorkspace(params.workspaceId);
 
-  repo.clearBoards(params.workspaceId);
+  await repo.clearBoards(params.workspaceId);
 
   const defaults = defaultGranularity(codes.length);
   const groupTarget = clamp(params.groupGranularity ?? defaults.groups, 1, Math.max(codes.length, 1));
@@ -125,7 +127,7 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
     maxThemeGranularity(groupTarget)
   );
 
-  const board = repo.createBoard({
+  const board = await repo.createBoard({
     workspaceId: params.workspaceId,
     name: params.boardName,
     hierarchyDepth: modeDepth(mode),
@@ -140,13 +142,13 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
 
   const codeById = new Map(codes.map((c) => [c.id, c]));
   const parentOf = new Map<string, string | undefined>();
-  const create = (
+  const create = async (
     title: string,
     description: string | undefined,
     level: number,
     parentThemeId?: string
-  ): ThemeRecord => {
-    const theme = repo.createTheme({
+  ): Promise<ThemeRecord> => {
+    const theme = await repo.createTheme({
       boardId: board.id,
       parentThemeId,
       level,
@@ -178,12 +180,12 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
   const assignmentPairs: { themeId: string; participantId: string }[] = [];
   let assignmentCount = 0;
 
-  const assignLeaf = (leafIndex: number, themeId: string) => {
+  const assignLeaf = async (leafIndex: number, themeId: string) => {
     leafThemeIds[leafIndex] = themeId;
     for (const item of leafClusters[leafIndex].items) {
       const code = codeById.get(item.id);
       if (!code) continue;
-      repo.createAssignment({
+      await repo.createAssignment({
         codeId: code.id,
         themeId,
         rationale: rationaleFor(code, leafNames[leafIndex].title, leafClusters[leafIndex].keywords)
@@ -194,10 +196,10 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
   };
 
   if (mode === "GROUPS") {
-    leafClusters.forEach((_, i) => {
-      const theme = create(leafNames[i].title, leafNames[i].description, 1);
-      assignLeaf(i, theme.id);
-    });
+    for (let i = 0; i < leafClusters.length; i += 1) {
+      const theme = await create(leafNames[i].title, leafNames[i].description, 1);
+      await assignLeaf(i, theme.id);
+    }
   } else {
     // Cluster the leaf groups into mid-level themes.
     const groupDocs = leafClusters.map((cluster, i) => ({
@@ -214,14 +216,15 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
     );
 
     if (mode === "THEMES") {
-      themeClusters.forEach((tc, ti) => {
-        const parent = create(themeNames[ti].title, themeNames[ti].description, 1);
+      for (let ti = 0; ti < themeClusters.length; ti += 1) {
+        const tc = themeClusters[ti];
+        const parent = await create(themeNames[ti].title, themeNames[ti].description, 1);
         for (const gd of tc.items) {
           const i = Number(gd.id);
-          const leaf = create(leafNames[i].title, leafNames[i].description, 2, parent.id);
-          assignLeaf(i, leaf.id);
+          const leaf = await create(leafNames[i].title, leafNames[i].description, 2, parent.id);
+          await assignLeaf(i, leaf.id);
         }
-      });
+      }
     } else {
       // RQS: research questions are the top level.
       const rqs =
@@ -229,9 +232,13 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
           ? workspace.researchQuestions
           : ["All research questions"];
       const rqTokens = rqs.map((q) => tokenize(q));
-      const rqNodes = rqs.map((q) => create(q, "Research question", 1));
+      const rqNodes: ThemeRecord[] = [];
+      for (const q of rqs) {
+        rqNodes.push(await create(q, "Research question", 1));
+      }
 
-      themeClusters.forEach((tc, ti) => {
+      for (let ti = 0; ti < themeClusters.length; ti += 1) {
+        const tc = themeClusters[ti];
         let bestRq = 0;
         let bestScore = -1;
         rqTokens.forEach((tokens, qi) => {
@@ -243,18 +250,18 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
         });
         if (bestScore <= 0) bestRq = ti % rqs.length;
 
-        const parent = create(themeNames[ti].title, themeNames[ti].description, 2, rqNodes[bestRq].id);
+        const parent = await create(themeNames[ti].title, themeNames[ti].description, 2, rqNodes[bestRq].id);
         for (const gd of tc.items) {
           const i = Number(gd.id);
-          const leaf = create(leafNames[i].title, leafNames[i].description, 3, parent.id);
-          assignLeaf(i, leaf.id);
+          const leaf = await create(leafNames[i].title, leafNames[i].description, 3, parent.id);
+          await assignLeaf(i, leaf.id);
         }
-      });
+      }
     }
   }
 
   // 2) Participant aggregation for the "mentioned by N" badge + color density.
-  const totalParticipants = Math.max(repo.listParticipants(params.workspaceId).length, 1);
+  const totalParticipants = Math.max((await repo.listParticipants(params.workspaceId)).length, 1);
   const participantsByTheme = new Map<string, Set<string>>();
   for (const pair of assignmentPairs) {
     let cursor: string | undefined = pair.themeId;
@@ -266,9 +273,9 @@ export async function generateBoard(params: GenerateBoardParams): Promise<Genera
     }
   }
 
-  for (const theme of repo.listThemes(board.id)) {
+  for (const theme of await repo.listThemes(board.id)) {
     const count = participantsByTheme.get(theme.id)?.size ?? 0;
-    repo.updateTheme(theme.id, {
+    await repo.updateTheme(theme.id, {
       participantCount: count,
       mentionDensity: Math.min(count / totalParticipants, 1)
     });

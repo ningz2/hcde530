@@ -55,8 +55,8 @@ export async function getSessionContext(): Promise<SessionContext> {
       };
     }
 
-    const session = repo.getSession(sessionToken);
-    const user = session ? repo.getUser(session.userId) : undefined;
+    const session = await repo.getSession(sessionToken);
+    const user = session ? await repo.getUser(session.userId) : undefined;
     if (session && user) {
       return {
         identity: {

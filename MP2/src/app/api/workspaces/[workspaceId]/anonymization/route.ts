@@ -21,7 +21,7 @@ export async function POST(request: Request, { params }: RouteProps) {
     await authorizeWorkspaceAction(workspaceId, "workspace.write");
 
     const input = await parseJsonBody(request, anonymizationDecisionSchema);
-    const result = applyAnonymization({ workspaceId, applyMasking: input.applyMasking });
+    const result = await applyAnonymization({ workspaceId, applyMasking: input.applyMasking });
 
     return ok({ workspaceId, anonymization: result });
   } catch (error) {

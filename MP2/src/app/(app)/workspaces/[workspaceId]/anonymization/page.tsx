@@ -12,11 +12,11 @@ type AnonymizationPageProps = {
 
 export default async function AnonymizationPage({ params }: AnonymizationPageProps) {
   const { workspaceId } = await params;
-  if (!repo.getWorkspace(workspaceId)) {
+  if (!(await repo.getWorkspace(workspaceId))) {
     notFound();
   }
 
-  const codes = repo.listCodes(workspaceId);
+  const codes = await repo.listCodes(workspaceId);
 
   return (
     <PageShell

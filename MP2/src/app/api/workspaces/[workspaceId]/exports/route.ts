@@ -18,7 +18,7 @@ export async function GET(_: Request, { params }: RouteProps) {
   try {
     const { workspaceId } = await params;
     await authorizeWorkspaceAction(workspaceId, "workspace.read");
-    return ok({ workspaceId, exportJobs: repo.listExportJobs(workspaceId) });
+    return ok({ workspaceId, exportJobs: await repo.listExportJobs(workspaceId) });
   } catch (error) {
     return toErrorResponse(error, traceId);
   }
@@ -41,7 +41,7 @@ export async function POST(request: Request, { params }: RouteProps) {
 
     const input = await parseJsonBody(request, exportCreateSchema);
 
-    const job = requestExport({
+    const job = await requestExport({
       workspaceId,
       requestedByUserId: authed.identity.userId,
       format: input.format

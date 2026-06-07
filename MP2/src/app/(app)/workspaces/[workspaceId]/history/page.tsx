@@ -11,7 +11,7 @@ type HistoryPageProps = {
 export default async function HistoryPage({ params }: HistoryPageProps) {
   const { workspaceId } = await params;
   // Dev identity matches the mock header injected by the client API helper.
-  const snapshots = repo.listSnapshots(workspaceId, "dev-user");
+  const snapshots = await repo.listSnapshots(workspaceId, "dev-user");
 
   return (
     <PageShell
