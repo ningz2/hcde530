@@ -503,6 +503,9 @@ function NodeBox({
         </div>
       )}
       <style jsx>{`
+        .sticky-note-hover:hover {
+          z-index: 30;
+        }
         .sticky-note-hover:hover .sticky-note-hover-card {
           display: block !important;
         }
