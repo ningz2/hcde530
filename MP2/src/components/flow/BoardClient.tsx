@@ -278,7 +278,7 @@ export function BoardClient({ view }: { view: BoardView }) {
             }}
           >
             {view.tree.map((node) => (
-              <div key={node.id} style={{ flex: "0 0 auto" }}>
+              <div key={node.id} className="board-group" style={{ flex: "0 0 auto" }}>
                 <NodeBox
                   workspaceId={view.workspaceId}
                   node={node}
@@ -428,7 +428,7 @@ function NodeBox({
     node.level === 1 ? containerL1 : node.level === 2 ? containerL2 : containerL3;
 
   return (
-    <section style={{ ...containerBase, ...tone }}>
+    <section className="board-node" style={{ ...containerBase, ...tone }}>
       <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: "0.5rem" }}>
         {editing ? (
           <input value={title} onChange={(e) => setTitle(e.target.value)} style={{ flex: 1, padding: "0.3rem" }} />
@@ -502,14 +502,6 @@ function NodeBox({
           ))}
         </div>
       )}
-      <style jsx>{`
-        .sticky-note-hover:hover {
-          z-index: 30;
-        }
-        .sticky-note-hover:hover .sticky-note-hover-card {
-          display: block !important;
-        }
-      `}</style>
     </section>
   );
 }

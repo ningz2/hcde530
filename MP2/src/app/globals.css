@@ -31,3 +31,14 @@ body {
 a {
   color: inherit;
 }
+
+/* Elevate entire group containers while a sticky-note hover card is open. */
+.board-group:has(.sticky-note-hover:hover),
+.board-node:has(.sticky-note-hover:hover) {
+  position: relative;
+  z-index: 30;
+}
+
+.sticky-note-hover:hover .sticky-note-hover-card {
+  display: block !important;
+}
