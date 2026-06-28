@@ -1,10 +1,10 @@
-import { redirect } from "next/navigation";
-import { PageShell } from "@/components/layout/PageShell";
-import { UploadDataForm } from "@/components/flow/UploadDataForm";
-import { WizardProgress } from "@/components/flow/WizardProgress";
+import { UploadDataSetup } from "@/components/flow/UploadDataSetup";
 import { getSessionContext } from "@/lib/auth/session";
+import { redirect } from "next/navigation";
 
 export const dynamic = "force-dynamic";
+
+const FORM_ID = "upload-data-form";
 
 export default async function HomePage() {
   const session = await getSessionContext();
@@ -13,12 +13,11 @@ export default async function HomePage() {
   }
 
   return (
-    <PageShell
-      title="Add your data"
-      description="Start by adding your research data. Upload a CSV, paste text, or try the sample. You'll choose privacy options in the next step. Open or delete existing projects from the sidebar."
-    >
-      <WizardProgress current="ingest" />
-      <UploadDataForm mode="new" />
-    </PageShell>
+    <UploadDataSetup
+      title="Upload research data"
+      description="Upload a CSV or paste coded text. You'll review privacy options before opening the board."
+      mode="new"
+      formId={FORM_ID}
+    />
   );
 }

@@ -10,16 +10,12 @@ type SidebarUser = { email: string; displayName?: string; provider: string } | n
 
 const STORAGE_KEY = "mp2-sidebar-collapsed";
 
-/**
- * Collapsible project sidebar (chat-style thread list). Projects are the
- * "threads"; click to open a board, or delete with a confirmation. The
- * collapsed/expanded state is remembered in localStorage.
- */
 export function Sidebar({ projects, user }: { projects: Project[]; user: SidebarUser }) {
   const router = useRouter();
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<Project | null>(null);
+  const [menuOpen, setMenuOpen] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -41,13 +37,15 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
     setError(null);
     const result = await apiSend(`/api/workspaces/${pendingDelete.id}`, "DELETE");
     setBusy(false);
-    if (isError(result)) {
+
+    const alreadyGone = isError(result) && result.error.code === "NOT_FOUND";
+    if (isError(result) && !alreadyGone) {
       setError(result.error.message);
       return;
     }
+
     const deletedId = pendingDelete.id;
     setPendingDelete(null);
-    // If we deleted the project we're viewing, go home; otherwise just refresh.
     if (pathname.includes(deletedId)) {
       router.push("/");
     } else {
@@ -61,14 +59,16 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
     router.refresh();
   }
 
+  const accountLabel = user?.displayName?.slice(0, 2).toUpperCase() ?? user?.email?.slice(0, 2).toUpperCase() ?? "?";
+
   return (
-    <aside style={{ ...sidebar, width: collapsed ? 52 : 264 }}>
-      <div style={topRow}>
-        {!collapsed && <span style={{ fontWeight: 700, fontSize: 14 }}>Projects</span>}
+    <aside className={`sidebar${collapsed ? " collapsed" : ""}`}>
+      <div className="sidebar-top">
+        {!collapsed && <h2 className="sidebar-title">Projects</h2>}
         <button
           type="button"
           onClick={toggle}
-          style={iconButton}
+          className="sidebar-toggle"
           aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
           title={collapsed ? "Expand" : "Collapse"}
         >
@@ -79,77 +79,69 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
       {!collapsed && (
         <>
           {user ? (
-            <div style={accountBox}>
-              <span style={{ fontWeight: 700, fontSize: 13 }}>{user.displayName ?? user.email}</span>
-              <span style={{ color: "#6b7280", fontSize: 12 }}>{user.email}</span>
-              <button type="button" onClick={logout} style={smallButton}>
-                Sign out
-              </button>
-            </div>
+            <Link href="/" className="sidebar-new">
+              + New project
+            </Link>
           ) : (
-            <Link href="/login" style={newButton}>
+            <Link href="/login" className="sidebar-new">
               Sign in
             </Link>
           )}
 
-          <Link href={user ? "/" : "/login"} style={newButton}>
-            + New project
-          </Link>
-
-          <nav style={{ overflowY: "auto", display: "grid", gap: "0.2rem", marginTop: "0.5rem" }}>
+          <nav className="sidebar-nav">
             {projects.length === 0 ? (
-              <span style={{ color: "#9ca3af", fontSize: 13, padding: "0.4rem 0.5rem" }}>
-                {user ? "No projects yet." : "Sign in to see your projects."}
-              </span>
+              <span className="sidebar-empty">{user ? "No projects yet." : "Sign in to see your projects."}</span>
             ) : (
               projects.map((p) => {
                 const active = pathname.includes(p.id);
                 return (
-                  <div
-                    key={p.id}
-                    style={{
-                      ...threadRow,
-                      background: active ? "linear-gradient(90deg, #eef2ff, #ecfeff)" : "transparent"
-                    }}
-                  >
-                    <Link
-                      href={`/workspaces/${p.id}/board`}
-                      style={{
-                        ...threadLink,
-                        color: active ? "var(--af-blue)" : "var(--af-text)",
-                        fontWeight: active ? 600 : 400
-                      }}
-                      title={p.name}
-                    >
+                  <div key={p.id} className={`sidebar-row${active ? " active" : ""}`}>
+                    <Link href={`/workspaces/${p.id}/board`} className="sidebar-link" title={p.name}>
                       {p.name}
                     </Link>
                     <button
                       type="button"
-                      onClick={() => setPendingDelete(p)}
-                      style={trashButton}
+                      onClick={() => {
+                        setMenuOpen(menuOpen === p.id ? null : p.id);
+                        setPendingDelete(p);
+                      }}
+                      className="sidebar-menu-btn"
                       aria-label={`Delete ${p.name}`}
                       title="Delete project"
                     >
-                      ×
+                      ⋯
                     </button>
                   </div>
                 );
               })
             )}
           </nav>
+
+          <div className="sidebar-account">
+            {user ? (
+              <>
+                Account · {accountLabel}
+                <div>
+                  <button type="button" onClick={logout} className="sidebar-signout">
+                    Sign out
+                  </button>
+                </div>
+              </>
+            ) : null}
+          </div>
         </>
       )}
 
       {pendingDelete && (
-        <div style={overlay} role="dialog" aria-modal="true" aria-label="Confirm delete project">
-          <div style={modal}>
-            <h2 style={{ margin: "0 0 0.25rem", fontSize: "1.15rem" }}>Delete this project?</h2>
-            <p style={{ margin: 0, color: "#374151" }}>
-              <strong>{pendingDelete.name}</strong> and all of its codes and board will be permanently
-              removed. This cannot be undone.
+        <div className="modal-overlay" role="dialog" aria-modal="true" aria-label="Confirm delete project">
+          <div className="modal-panel">
+            <h2>Delete project and its codes?</h2>
+            <p style={{ margin: 0, color: "var(--color-ink-muted)", fontSize: 14 }}>
+              <strong style={{ color: "var(--color-ink)" }}>{pendingDelete.name}</strong> and all of its codes and
+              board will be permanently removed. This cannot be undone.
             </p>
-            {error && <p style={{ color: "#b91c1c", margin: "0.5rem 0 0" }}>{error}</p>}
-            <div style={{ display: "flex", gap: "0.5rem", justifyContent: "flex-end", marginTop: "0.5rem" }}>
+            {error && <p className="form-error">{error}</p>}
+            <div className="modal-actions">
               <button
                 type="button"
                 onClick={() => {
@@ -157,11 +149,11 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
                   setError(null);
                 }}
                 disabled={busy}
-                style={cancelButton}
+                className="btn"
               >
                 Cancel
               </button>
-              <button type="button" onClick={confirmDelete} disabled={busy} style={confirmButton}>
+              <button type="button" onClick={confirmDelete} disabled={busy} className="btn btn-danger">
                 {busy ? "Deleting…" : "Delete project"}
               </button>
             </div>
@@ -171,145 +163,3 @@ export function Sidebar({ projects, user }: { projects: Project[]; user: Sidebar
     </aside>
   );
 }
-
-const sidebar: React.CSSProperties = {
-  flexShrink: 0,
-  borderRight: "1px solid var(--af-border)",
-  background: "rgba(255,255,255,0.72)",
-  backdropFilter: "blur(16px)",
-  height: "100vh",
-  position: "sticky",
-  top: 0,
-  padding: "0.6rem",
-  display: "flex",
-  flexDirection: "column",
-  gap: "0.25rem",
-  transition: "width 0.15s ease",
-  overflow: "hidden"
-};
-
-const topRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  minHeight: 32
-};
-
-const iconButton: React.CSSProperties = {
-  border: "1px solid var(--af-border)",
-  background: "#fff",
-  borderRadius: 6,
-  width: 30,
-  height: 30,
-  cursor: "pointer",
-  fontSize: 15,
-  lineHeight: 1,
-  color: "#374151"
-};
-
-const newButton: React.CSSProperties = {
-  display: "block",
-  textAlign: "center",
-  border: "1px solid var(--af-border)",
-  background: "linear-gradient(180deg, #ffffff, #f8fbff)",
-  borderRadius: 8,
-  padding: "0.45rem",
-  fontSize: 14,
-  color: "var(--af-text)",
-  textDecoration: "none",
-  marginTop: "0.4rem",
-  boxShadow: "var(--af-shadow-soft)"
-};
-
-const accountBox: React.CSSProperties = {
-  display: "grid",
-  gap: "0.2rem",
-  border: "1px solid var(--af-border)",
-  background: "rgba(255,255,255,0.9)",
-  borderRadius: 8,
-  padding: "0.6rem",
-  marginTop: "0.4rem"
-};
-
-const smallButton: React.CSSProperties = {
-  justifySelf: "start",
-  marginTop: "0.2rem",
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#374151",
-  borderRadius: 6,
-  padding: "0.25rem 0.5rem",
-  fontSize: 12,
-  cursor: "pointer"
-};
-
-const threadRow: React.CSSProperties = {
-  display: "flex",
-  alignItems: "center",
-  borderRadius: 10,
-  paddingRight: "0.25rem",
-  transition: "background 0.15s ease, transform 0.15s ease"
-};
-
-const threadLink: React.CSSProperties = {
-  flex: 1,
-  minWidth: 0,
-  textDecoration: "none",
-  padding: "0.45rem 0.5rem",
-  fontSize: 14,
-  whiteSpace: "nowrap",
-  overflow: "hidden",
-  textOverflow: "ellipsis"
-};
-
-const trashButton: React.CSSProperties = {
-  border: "none",
-  background: "none",
-  color: "#9ca3af",
-  cursor: "pointer",
-  fontSize: 18,
-  lineHeight: 1,
-  padding: "0 0.3rem"
-};
-
-const overlay: React.CSSProperties = {
-  position: "fixed",
-  inset: 0,
-  background: "rgba(15, 23, 42, 0.45)",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "center",
-  padding: "1rem",
-  zIndex: 50
-};
-
-const modal: React.CSSProperties = {
-  background: "#fff",
-  borderRadius: 12,
-  padding: "1.5rem",
-  maxWidth: 440,
-  width: "100%",
-  boxShadow: "0 10px 40px rgba(0,0,0,0.2)",
-  display: "grid",
-  gap: "0.5rem"
-};
-
-const cancelButton: React.CSSProperties = {
-  border: "1px solid #d1d5db",
-  background: "#fff",
-  color: "#374151",
-  borderRadius: 8,
-  padding: "0.5rem 0.85rem",
-  fontSize: 14,
-  cursor: "pointer"
-};
-
-const confirmButton: React.CSSProperties = {
-  border: "1px solid #b91c1c",
-  background: "#b91c1c",
-  color: "#fff",
-  borderRadius: 8,
-  padding: "0.5rem 0.85rem",
-  fontSize: 14,
-  cursor: "pointer"
-};

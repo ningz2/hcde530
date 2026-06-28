@@ -20,7 +20,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
   return (
     <html lang="en">
       <body>
-        <div style={{ display: "flex", minHeight: "100vh", alignItems: "flex-start" }}>
+        <div className="app-shell">
           <Sidebar
             projects={projects}
             user={
@@ -33,7 +33,7 @@ export default async function RootLayout({ children }: Readonly<{ children: Reac
                 : null
             }
           />
-          <div style={{ flex: 1, minWidth: 0 }}>{children}</div>
+          <div className="main-content">{children}</div>
         </div>
       </body>
     </html>

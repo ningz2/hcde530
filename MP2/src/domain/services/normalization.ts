@@ -1,5 +1,5 @@
 import { colorTokenForIndex } from "@/lib/color/palette";
-import { repo, type UploadInputType } from "@/lib/repo/store";
+import { repo, type ParticipantRecord, type UploadInputType } from "@/lib/repo/store";
 import { maskText } from "@/domain/services/anonymization";
 import { RealParserService, UNASSIGNED_PARTICIPANT } from "@/domain/services/parser";
 
@@ -62,11 +62,19 @@ export async function extractAndStore(params: {
   });
 
   const participantTokens = new Map<string, string>();
+  const participantsByLabel = new Map<string, ParticipantRecord>(
+    (await repo.listParticipants(params.workspaceId)).map((participant) => [
+      participant.sourceLabel,
+      participant
+    ])
+  );
 
   // When a file has no participant column, treat the whole file as one
   // participant using the file name. This lets users upload one file per
   // participant and still get participant-aware colors and emphasis.
   const fileParticipant = participantFromFilename(params.filename);
+
+  const codesToCreate: Omit<import("@/lib/repo/types").CodeRecord, "id" | "createdAt">[] = [];
 
   for (const item of parsed) {
     const label =
@@ -74,16 +82,20 @@ export async function extractAndStore(params: {
         ? item.participantLabel
         : fileParticipant ?? item.participantLabel;
 
-    const participant = await repo.ensureParticipant({
-      workspaceId: params.workspaceId,
-      sourceLabel: label,
-      anonymizedLabel: label,
-      assignColorToken: (existingCount) => colorTokenForIndex(existingCount)
-    });
+    let participant = participantsByLabel.get(label);
+    if (!participant) {
+      participant = await repo.ensureParticipant({
+        workspaceId: params.workspaceId,
+        sourceLabel: label,
+        anonymizedLabel: label,
+        assignColorToken: (existingCount) => colorTokenForIndex(existingCount)
+      });
+      participantsByLabel.set(label, participant);
+    }
 
     participantTokens.set(participant.anonymizedLabel, participant.colorToken);
 
-    await repo.createCode({
+    codesToCreate.push({
       workspaceId: params.workspaceId,
       uploadId: upload.id,
       participantId: participant.id,
@@ -95,6 +107,8 @@ export async function extractAndStore(params: {
       state: "ACTIVE"
     });
   }
+
+  await repo.createCodes(codesToCreate);
 
   return {
     uploadId: upload.id,

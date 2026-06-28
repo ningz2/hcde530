@@ -270,6 +270,13 @@ export const memoryRepo = {
     return record;
   },
 
+  async createCodes(inputs: Omit<CodeRecord, "id" | "createdAt">[]): Promise<void> {
+    for (const input of inputs) {
+      const record: CodeRecord = { ...input, id: randomUUID(), createdAt: now() };
+      store.codes.set(record.id, record);
+    }
+  },
+
   async listCodes(workspaceId: string, includeDeleted = false): Promise<CodeRecord[]> {
     return [...store.codes.values()].filter(
       (c) => c.workspaceId === workspaceId && (includeDeleted || c.state === "ACTIVE")

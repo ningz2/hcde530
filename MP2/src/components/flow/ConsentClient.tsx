@@ -27,67 +27,37 @@ export function ConsentClient({ workspaceId, codeCount }: { workspaceId: string;
   }
 
   if (codeCount === 0) {
-    return (
-      <p style={{ color: "#6b7280" }}>
-        No data found for this project yet. Go back and add data first.
-      </p>
-    );
+    return <p style={{ color: "var(--color-ink-muted)" }}>No data found for this project yet. Go back and add data first.</p>;
   }
 
   return (
-    <div style={{ display: "grid", gap: "1rem", maxWidth: 560 }}>
-      <p style={{ margin: 0 }}>
-        {codeCount} code{codeCount === 1 ? "" : "s"} were extracted. Choose how to handle personal
-        information before continuing.
+    <div className="form-surface" style={{ maxWidth: 560 }}>
+      <p style={{ margin: 0, color: "var(--color-ink-muted)", fontSize: 14 }}>
+        {codeCount} code{codeCount === 1 ? "" : "s"} were extracted. Choose how to handle personal information before
+        continuing.
       </p>
 
-      <label style={radioRow}>
+      <label className={`radio-card${applyMasking ? " selected" : ""}`}>
         <input type="radio" checked={applyMasking} onChange={() => setApplyMasking(true)} />
-        <span>
+        <div>
           <strong>Mask personal data (recommended)</strong>
-          <br />
-          <span style={{ color: "#6b7280", fontSize: 13 }}>
-            Detects and hides names, emails, phone numbers, and links before any analysis.
-          </span>
-        </span>
+          <span>Detects and hides names, emails, phone numbers, and links before any analysis.</span>
+        </div>
       </label>
 
-      <label style={radioRow}>
+      <label className={`radio-card${!applyMasking ? " selected" : ""}`}>
         <input type="radio" checked={!applyMasking} onChange={() => setApplyMasking(false)} />
-        <span>
+        <div>
           <strong>Keep data as-is</strong>
-          <br />
-          <span style={{ color: "#6b7280", fontSize: 13 }}>
-            No masking. Personal information may remain in your codes.
-          </span>
-        </span>
+          <span>No masking. Personal information may remain in your codes.</span>
+        </div>
       </label>
 
-      {error && <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>}
+      {error && <p className="form-error">{error}</p>}
 
-      <button type="button" onClick={onContinue} disabled={busy} style={primaryButton}>
+      <button type="button" onClick={onContinue} disabled={busy} className="btn btn-primary">
         {busy ? "Applying…" : applyMasking ? "Apply protection & continue" : "Continue without masking"}
       </button>
     </div>
   );
 }
-
-const radioRow: React.CSSProperties = {
-  display: "flex",
-  gap: "0.6rem",
-  alignItems: "flex-start",
-  border: "1px solid #e5e7eb",
-  borderRadius: 8,
-  padding: "0.75rem"
-};
-
-const primaryButton: React.CSSProperties = {
-  padding: "0.55rem 0.9rem",
-  border: "1px solid #1d4ed8",
-  background: "#1d4ed8",
-  color: "#fff",
-  borderRadius: 8,
-  fontSize: 14,
-  cursor: "pointer",
-  justifySelf: "start"
-};

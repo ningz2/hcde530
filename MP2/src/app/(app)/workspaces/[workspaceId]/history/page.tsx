@@ -19,13 +19,13 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
       description="Your session's edit history. Each board edit captures a revertible snapshot; undo is available from the board."
     >
       {snapshots.length === 0 ? (
-        <p style={{ color: "#6b7280" }}>No edits recorded in this session yet.</p>
+        <p style={{ color: "var(--color-ink-muted)" }}>No edits recorded in this session yet.</p>
       ) : (
-        <ol style={{ paddingLeft: "1.1rem" }}>
+        <ol style={{ paddingLeft: "1.1rem", margin: 0 }}>
           {snapshots.map((s) => (
             <li key={s.id} style={{ marginBottom: "0.35rem" }}>
               <strong>{s.action}</strong> · {s.label}{" "}
-              <span style={{ color: "#9ca3af", fontSize: 12 }}>
+              <span style={{ color: "var(--color-ink-faint)", fontSize: 12 }}>
                 ({new Date(s.createdAt).toLocaleTimeString()})
               </span>
             </li>
@@ -33,8 +33,8 @@ export default async function HistoryPage({ params }: HistoryPageProps) {
         </ol>
       )}
 
-      <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #eef0f3" }}>
-        <Link href={`/workspaces/${workspaceId}/board`} style={{ fontSize: 14, color: "#6b7280" }}>
+      <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid var(--color-border)" }}>
+        <Link href={`/workspaces/${workspaceId}/board`} className="btn btn-quiet">
           ← Back to the board
         </Link>
       </div>

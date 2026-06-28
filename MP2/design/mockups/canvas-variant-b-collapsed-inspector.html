@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AffinityFlow canvas · Variant B — Collapsed inspector + minimap</title>
+  <style>
+    :root {
+      --color-canvas: #F7F6F2;
+      --color-surface: #FEFDFB;
+      --color-surface-subtle: #F0EFEA;
+      --color-surface-raised: #FFFFFF;
+      --color-ink: #171714;
+      --color-ink-muted: #66645D;
+      --color-ink-faint: #8D8A81;
+      --color-border: #DEDCD4;
+      --color-accent: #5B4AE8;
+      --color-accent-soft: #EEEBFF;
+      --shadow-1: 0 1px 2px rgba(23, 23, 20, .06);
+      --shadow-2: 0 4px 14px rgba(23, 23, 20, .10);
+      --sidebar-w: 248px;
+      --toolbar-h: 56px;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--color-ink);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--color-canvas); }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--color-surface-subtle);
+      border-right: 1px solid var(--color-border);
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar h2 { margin: 0; font-size: 14px; font-weight: 620; }
+    .new-btn {
+      display: block; text-align: center; padding: 8px 12px;
+      border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-surface); font-size: 13px; text-decoration: none; color: inherit;
+    }
+    .project {
+      padding: 8px 10px; border-radius: 6px; font-size: 13px; font-weight: 560;
+      background: var(--color-accent-soft); box-shadow: inset 2px 0 0 var(--color-accent);
+    }
+    .account { margin-top: auto; font-size: 12px; color: var(--color-ink-muted); padding: 8px; }
+
+    .workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .toolbar {
+      height: var(--toolbar-h); display: flex; align-items: center; gap: 12px;
+      padding: 0 16px; border-bottom: 1px solid var(--color-border); background: var(--color-surface);
+    }
+    .breadcrumb { font-size: 13px; color: var(--color-ink-muted); }
+    .breadcrumb strong { color: var(--color-ink); font-weight: 560; }
+    .meta {
+      margin-left: 12px; padding-left: 12px; border-left: 1px solid var(--color-border);
+      font-size: 13px; color: var(--color-ink-muted); font-variant-numeric: tabular-nums;
+    }
+    .toolbar-actions { margin-left: auto; display: flex; gap: 8px; }
+    .btn {
+      height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--color-border);
+      background: var(--color-surface); font-size: 13px; cursor: pointer;
+    }
+    .btn-secondary { color: var(--color-ink-muted); }
+
+    .canvas-stage { flex: 1; position: relative; overflow: hidden; }
+    .canvas {
+      position: absolute; inset: 0;
+      background-color: var(--color-canvas);
+      background-image: radial-gradient(rgba(23, 23, 20, .08) 1px, transparent 1px);
+      background-size: 20px 20px;
+    }
+    .canvas-content {
+      position: absolute; top: 40px; left: 40px;
+      display: flex; gap: 16px;
+    }
+    .group {
+      width: 260px; border: 1px dashed var(--color-border);
+      border-radius: 8px; padding: 10px 12px; background: transparent;
+      display: grid; gap: 8px;
+    }
+    .group h3 { margin: 0; font-size: 15px; font-weight: 620; }
+    .group-meta { font-size: 11px; color: var(--color-ink-faint); }
+    .notes { display: flex; flex-wrap: wrap; gap: 8px; }
+    .note {
+      width: 104px; height: 104px; border-radius: 4px; padding: 8px;
+      border: 1px solid; box-shadow: var(--shadow-1);
+      font-size: 12px; line-height: 15px; font-weight: 560;
+      display: flex; flex-direction: column; justify-content: space-between;
+    }
+    .note.blue { background: #E3EEFF; border-color: #6F9FEF; color: #173B6A; }
+    .note.rose { background: #FBE5EA; border-color: #DF7F96; color: #66243A; }
+    .note.amber { background: #FFF0CE; border-color: #D6A64D; color: #5A3C08; }
+    .note.selected { outline: 2px solid var(--color-accent); outline-offset: 2px; }
+    .participant { font-size: 10px; display: flex; align-items: center; gap: 4px; }
+    .initials {
+      width: 15px; height: 15px; border-radius: 4px; background: rgba(255,255,255,.75);
+      display: grid; place-items: center; font-size: 8px; font-weight: 620;
+    }
+
+    /* Collapsed inspector tab */
+    .inspector-tab {
+      position: absolute; top: 50%; right: 0; transform: translateY(-50%);
+      writing-mode: vertical-rl; text-orientation: mixed;
+      padding: 12px 8px; border: 1px solid var(--color-border); border-right: none;
+      border-radius: 8px 0 0 8px; background: var(--color-surface-raised);
+      box-shadow: var(--shadow-2); font-size: 12px; font-weight: 560;
+      color: var(--color-ink-muted); cursor: pointer;
+    }
+    .inspector-tab:hover { color: var(--color-accent); background: var(--color-accent-soft); }
+
+    /* Bottom-center floating toolbar */
+    .float-toolbar {
+      position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+      display: flex; align-items: center; gap: 2px; padding: 4px 6px;
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border); border-radius: 8px; box-shadow: var(--shadow-2);
+    }
+    .icon-btn {
+      width: 32px; height: 32px; border: none; border-radius: 6px;
+      background: transparent; cursor: pointer; font-size: 13px;
+    }
+    .icon-btn:hover { background: var(--color-surface-subtle); }
+    .divider { width: 1px; height: 20px; background: var(--color-border); margin: 0 4px; }
+    .zoom-label { font-size: 12px; min-width: 42px; text-align: center; font-variant-numeric: tabular-nums; color: var(--color-ink-muted); }
+
+    /* Minimap */
+    .minimap {
+      position: absolute; right: 16px; bottom: 16px;
+      width: 140px; height: 88px;
+      background: var(--color-surface-raised);
+      border: 1px solid var(--color-border); border-radius: 8px;
+      box-shadow: var(--shadow-2); padding: 8px;
+    }
+    .minimap-label { font-size: 10px; color: var(--color-ink-faint); margin-bottom: 6px; }
+    .minimap-viewport {
+      position: relative; width: 100%; height: 56px;
+      background: var(--color-surface-subtle); border-radius: 4px;
+    }
+    .minimap-block {
+      position: absolute; border-radius: 2px; background: rgba(91, 74, 232, .25);
+      border: 1px solid rgba(91, 74, 232, .45);
+    }
+    .minimap-frame {
+      position: absolute; border: 1.5px solid var(--color-ink);
+      border-radius: 2px; opacity: .6;
+    }
+
+    .variant-tag {
+      position: fixed; top: 12px; right: 12px; z-index: 99;
+      background: var(--color-ink); color: #fff; font-size: 11px;
+      padding: 6px 10px; border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="variant-tag">Variant B · Collapsed inspector · Minimap · Max canvas</div>
+  <div class="app">
+    <aside class="sidebar">
+      <h2>Projects</h2>
+      <a href="#" class="new-btn">+ New project</a>
+      <div class="project">Kitchen research</div>
+      <div class="account">Account · ZN</div>
+    </aside>
+
+    <div class="workspace">
+      <header class="toolbar">
+        <span class="breadcrumb">Kitchen research / <strong>Organize board</strong></span>
+        <span class="meta">62 codes · 6 groups · 1 selected</span>
+        <div class="toolbar-actions">
+          <button class="btn btn-secondary">Export &amp; share</button>
+        </div>
+      </header>
+
+      <div class="canvas-stage">
+        <div class="canvas">
+          <div class="canvas-content">
+            <section class="group">
+              <h3>Dishes &amp; dish</h3>
+              <div class="group-meta">12 codes</div>
+              <div class="notes">
+                <div class="note blue selected">
+                  <span>Chopper is multi-used as blender</span>
+                  <span class="participant"><span class="initials">P1</span> Alex</span>
+                </div>
+                <div class="note blue">
+                  <span>Grinder helps chop faster</span>
+                  <span class="participant"><span class="initials">P1</span> Alex</span>
+                </div>
+                <div class="note rose">
+                  <span>Hard to clean after use</span>
+                  <span class="participant"><span class="initials">P2</span> Sam</span>
+                </div>
+              </div>
+            </section>
+            <section class="group">
+              <h3>Meal &amp; prep</h3>
+              <div class="group-meta">18 codes</div>
+              <div class="notes">
+                <div class="note amber">
+                  <span>Prep takes longer than expected</span>
+                  <span class="participant"><span class="initials">P3</span> Jordan</span>
+                </div>
+                <div class="note blue">
+                  <span>Batch cooking on Sundays</span>
+                  <span class="participant"><span class="initials">P1</span> Alex</span>
+                </div>
+              </div>
+            </section>
+            <section class="group">
+              <h3>Recipe &amp; learn</h3>
+              <div class="group-meta">9 codes</div>
+              <div class="notes">
+                <div class="note rose">
+                  <span>YouTube for technique tips</span>
+                  <span class="participant"><span class="initials">P2</span> Sam</span>
+                </div>
+              </div>
+            </section>
+          </div>
+
+          <button class="inspector-tab" title="Open organize inspector">Organize</button>
+
+          <div class="float-toolbar">
+            <button class="icon-btn" title="Zoom out">−</button>
+            <span class="zoom-label">72%</span>
+            <button class="icon-btn" title="Zoom in">+</button>
+            <div class="divider"></div>
+            <button class="icon-btn" title="100%">100%</button>
+            <button class="icon-btn" title="Fit board">⤢</button>
+            <div class="divider"></div>
+            <button class="icon-btn" title="Undo">↶</button>
+            <button class="icon-btn" title="Redo">↷</button>
+          </div>
+
+          <div class="minimap">
+            <div class="minimap-label">Overview</div>
+            <div class="minimap-viewport">
+              <div class="minimap-block" style="left:8%;top:20%;width:22%;height:55%"></div>
+              <div class="minimap-block" style="left:34%;top:18%;width:24%;height:58%"></div>
+              <div class="minimap-block" style="left:62%;top:22%;width:20%;height:48%"></div>
+              <div class="minimap-frame" style="left:18%;top:10%;width:52%;height:72%"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

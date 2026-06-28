@@ -18,8 +18,8 @@ export default async function ExportSharePage({ params }: ExportSharePageProps) 
     >
       <ExportShareClient workspaceId={workspaceId} />
 
-      <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid #eef0f3" }}>
-        <Link href={`/workspaces/${workspaceId}/board`} style={{ fontSize: 14, color: "#6b7280" }}>
+      <div style={{ marginTop: "1.5rem", paddingTop: "1rem", borderTop: "1px solid var(--color-border)" }}>
+        <Link href={`/workspaces/${workspaceId}/board`} className="btn btn-quiet">
           ← Back to the board
         </Link>
       </div>

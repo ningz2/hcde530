@@ -1,6 +1,5 @@
 import { notFound } from "next/navigation";
 import { ConsentClient } from "@/components/flow/ConsentClient";
-import { WizardProgress } from "@/components/flow/WizardProgress";
 import { PageShell } from "@/components/layout/PageShell";
 import { repo } from "@/lib/repo/store";
 
@@ -23,7 +22,6 @@ export default async function AnonymizationPage({ params }: AnonymizationPagePro
       title="Privacy check"
       description="Decide how to handle personal information. Raw files were already discarded after extraction."
     >
-      <WizardProgress current="anonymization" />
       <ConsentClient workspaceId={workspaceId} codeCount={codes.length} />
     </PageShell>
   );

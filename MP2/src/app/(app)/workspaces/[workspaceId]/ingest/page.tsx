@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { UploadDataForm } from "@/components/flow/UploadDataForm";
-import { WizardProgress } from "@/components/flow/WizardProgress";
-import { PageShell } from "@/components/layout/PageShell";
+import { UploadDataSetup } from "@/components/flow/UploadDataSetup";
 import { repo } from "@/lib/repo/store";
 
 export const dynamic = "force-dynamic";
+
+const FORM_ID = "ingest-data-form";
 
 type IngestPageProps = {
   params: Promise<{ workspaceId: string }>;
@@ -17,12 +17,12 @@ export default async function IngestPage({ params }: IngestPageProps) {
   }
 
   return (
-    <PageShell
+    <UploadDataSetup
       title="Add more data"
-      description="Add additional data to this project. You'll confirm privacy options next."
-    >
-      <WizardProgress current="ingest" />
-      <UploadDataForm mode="existing" workspaceId={workspaceId} />
-    </PageShell>
+      description="Upload additional codes to this project. You'll review privacy options before returning to the board."
+      mode="existing"
+      workspaceId={workspaceId}
+      formId={FORM_ID}
+    />
   );
 }

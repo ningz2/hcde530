@@ -17,11 +17,6 @@ type Method = "file" | "paste";
 type FileMode = "single" | "multiple";
 type LoadedFile = { name: string; content: string; codeCount: number };
 
-/**
- * Estimate the number of codes in a file by counting data rows. CSV/TSV files
- * have a header row that is not a code, so it's excluded. This is a pre-submit
- * preview; the authoritative count comes back from the ingest API.
- */
 function countCodeRows(content: string, filename?: string): number {
   const lines = content.split(/\r?\n/).map((l) => l.trim()).filter(Boolean);
   const lower = (filename ?? "").toLowerCase();
@@ -29,23 +24,18 @@ function countCodeRows(content: string, filename?: string): number {
   return looksCsv ? Math.max(lines.length - 1, 0) : lines.length;
 }
 
-/**
- * Step 1 data input. In "new" mode it creates the project then stores the data;
- * in "existing" mode it adds data to the current project.
- *
- * Two file workflows:
- *  - "single": one CSV/TSV holding every participant (a participant column, e.g.
- *    tab-separated). Participants are read from that column.
- *  - "multiple": several files, one participant each. A file without a
- *    participant column is grouped under its file name.
- * Each file is ingested separately. After saving it moves to the privacy step.
- */
 export function UploadDataForm({
   mode,
-  workspaceId
+  workspaceId,
+  formId = "upload-data-form",
+  hideFooter = false,
+  onBusyChange
 }: {
   mode: "new" | "existing";
   workspaceId?: string;
+  formId?: string;
+  hideFooter?: boolean;
+  onBusyChange?: (busy: boolean) => void;
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -55,13 +45,17 @@ export function UploadDataForm({
   const [fileMode, setFileMode] = useState<FileMode>("single");
   const [files, setFiles] = useState<LoadedFile[]>([]);
   const [content, setContent] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [busy, setBusyState] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  // When set, the privacy-check modal is shown for the just-created data.
+  const [dragOver, setDragOver] = useState(false);
   const [consent, setConsent] = useState<{ workspaceId: string; codeCount: number } | null>(null);
 
-  async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
-    const picked = Array.from(event.target.files ?? []);
+  function setBusy(next: boolean) {
+    setBusyState(next);
+    onBusyChange?.(next);
+  }
+
+  async function loadFiles(picked: File[]) {
     if (picked.length === 0) return;
     const loaded: LoadedFile[] = await Promise.all(
       picked.map(async (file) => {
@@ -70,13 +64,16 @@ export function UploadDataForm({
       })
     );
     setFiles((prev) => {
-      // Single mode keeps exactly one file; multiple mode appends (de-duped by name).
       const base = fileMode === "single" ? [] : prev;
       const byName = new Map(base.map((f) => [f.name, f]));
       loaded.forEach((f) => byName.set(f.name, f));
       const next = [...byName.values()];
       return fileMode === "single" ? next.slice(-1) : next;
     });
+  }
+
+  async function onFileChange(event: React.ChangeEvent<HTMLInputElement>) {
+    await loadFiles(Array.from(event.target.files ?? []));
   }
 
   function removeFile(fileName: string) {
@@ -110,7 +107,6 @@ export function UploadDataForm({
     const lower = (filename ?? "").toLowerCase();
     if (lower.endsWith(".csv")) return "CSV";
     if (filename && lower.endsWith(".txt")) return "TXT";
-    // Content that looks like CSV (header + commas) is treated as CSV.
     if (/^[^\n]*,[^\n]*\n/.test(text)) return "CSV";
     return "PASTED_TEXT";
   }
@@ -118,7 +114,6 @@ export function UploadDataForm({
   async function onSubmit(event: React.FormEvent) {
     event.preventDefault();
 
-    // Build the list of uploads from either the selected files or pasted text.
     const uploads: { content: string; filename?: string }[] =
       method === "file"
         ? files.filter((f) => f.content.trim()).map((f) => ({ content: f.content, filename: f.name }))
@@ -170,200 +165,198 @@ export function UploadDataForm({
     }
 
     setBusy(false);
-
-    // Re-render server components (incl. the root layout) so the sidebar shows
-    // the newly created project right away. Client state (this modal) persists.
     router.refresh();
-
-    // Open the privacy-check modal as a follow-up step instead of navigating away.
     setConsent({ workspaceId: targetWorkspaceId as string, codeCount: totalCodes });
   }
 
-  return (
-    <form onSubmit={onSubmit} style={{ display: "grid", gap: "0.85rem", maxWidth: 720 }}>
-      {mode === "new" && (
-        <>
-          <FormSection
-            title="Project details"
-            description={name.trim() ? name.trim() : "Optional. Defaults to Untitled project."}
-          >
-            <label style={{ display: "grid", gap: "0.25rem" }}>
-              <span>Project name</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Onboarding research Q2"
-                style={inputStyle}
-              />
-            </label>
-          </FormSection>
+  const footer = (
+    <button type="submit" form={formId} disabled={busy} className="btn btn-primary">
+      {busy ? "Saving…" : "Save & continue"}
+    </button>
+  );
 
-          <FormSection
-            title="Research questions"
-            description={
-              researchQuestions.filter((q) => q.trim()).length > 0
-                ? `${researchQuestions.filter((q) => q.trim()).length} question(s) added`
-                : "Optional. Use this when you want the board organized by RQs."
-            }
-          >
-            <div style={{ display: "grid", gap: "0.4rem" }}>
-              <span style={{ fontSize: 12, color: "#6b7280" }}>
-                Add the questions guiding your study. They help the assistant name themes and can organize
-                the board by research question.
-              </span>
+  return (
+    <>
+      <form id={formId} onSubmit={onSubmit} className="form-surface">
+        {mode === "new" && (
+          <>
+            <section className="form-section">
+              <div>
+                <h2>Project details</h2>
+                <p className="form-help">Optional. Defaults to Untitled project.</p>
+              </div>
+              <label className="field">
+                <span className="field-label">Project name</span>
+                <input
+                  className="input"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Kitchen research Q2"
+                />
+              </label>
+            </section>
+
+            <section className="form-section">
+              <div>
+                <h2>Research questions</h2>
+                <p className="form-help">Optional. Used when organizing the board by research questions.</p>
+              </div>
               {researchQuestions.map((q, i) => (
-                <div key={i} style={{ display: "flex", gap: "0.4rem", alignItems: "center" }}>
-                  <span style={{ color: "#9ca3af", fontSize: 13, width: 22 }}>RQ{i + 1}</span>
+                <div key={i} className="rq-row">
+                  <span className="rq-num">RQ{i + 1}</span>
                   <input
+                    className="input"
                     value={q}
                     onChange={(e) => updateRq(i, e.target.value)}
-                    placeholder="e.g. What makes onboarding confusing for new users?"
-                    style={{ ...inputStyle, flex: 1 }}
+                    placeholder="What makes meal prep frustrating?"
+                    style={{ flex: 1 }}
                   />
                   <button
                     type="button"
                     onClick={() => removeRq(i)}
-                    style={{ border: "none", background: "none", color: "#b91c1c", cursor: "pointer", fontSize: 13 }}
+                    className="icon-quiet"
                     aria-label={`Remove research question ${i + 1}`}
+                    title="Remove research question"
                   >
-                    remove
+                    ✕
                   </button>
                 </div>
               ))}
-              <button type="button" onClick={addRq} style={{ ...secondaryButton, justifySelf: "start" }}>
+              <button type="button" onClick={addRq} className="btn btn-quiet">
                 + Add research question
               </button>
-            </div>
-          </FormSection>
-        </>
-      )}
+            </section>
+          </>
+        )}
 
-      <FormSection
-        title="Data"
-        description={
-          method === "file"
-            ? files.length > 0
-              ? `${files.reduce((sum, f) => sum + f.codeCount, 0)} code(s) from ${files.length} file(s)`
-              : "Required. Upload one or more CSV/TXT files."
-            : content.trim()
-              ? `${countCodeRows(content)} pasted code(s)`
-              : "Required. Upload files or paste code data."
-        }
-      >
-        <div style={{ display: "grid", gap: "0.8rem" }}>
-          <div style={{ display: "flex", gap: "1rem" }}>
-            <label>
-              <input type="radio" checked={method === "file"} onChange={() => setMethod("file")} /> Upload a file
-            </label>
-            <label>
-              <input type="radio" checked={method === "paste"} onChange={() => setMethod("paste")} /> Paste text
-            </label>
+        <section className="form-section">
+          <div>
+            <h2>Data</h2>
+            <p className="form-help">Required. CSV with a <code>code</code> column works best.</p>
+          </div>
+
+          <div className="method-tabs" role="tablist" aria-label="Input method">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={method === "file"}
+              className={`method-tab${method === "file" ? " active" : ""}`}
+              onClick={() => setMethod("file")}
+            >
+              Upload file
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={method === "paste"}
+              className={`method-tab${method === "paste" ? " active" : ""}`}
+              onClick={() => setMethod("paste")}
+            >
+              Paste text
+            </button>
           </div>
 
           {method === "file" ? (
-            <div style={{ display: "grid", gap: "0.6rem" }}>
-              <div style={{ display: "grid", gap: "0.4rem" }}>
-                <label style={fileModeRow}>
+            <>
+              <div className="radio-cards">
+                <label className={`radio-card${fileMode === "single" ? " selected" : ""}`}>
                   <input
                     type="radio"
+                    name="fileMode"
                     checked={fileMode === "single"}
                     onChange={() => changeFileMode("single")}
                   />
-                  <span>
+                  <div>
                     <strong>One file, all participants</strong>
-                    <br />
-                    <span style={{ color: "#6b7280", fontSize: 13 }}>
-                      A single CSV/TSV with a <code>participant</code> column (e.g. tab-separated).
-                    </span>
-                  </span>
+                    <span>Single CSV/TSV with a participant column.</span>
+                  </div>
                 </label>
-                <label style={fileModeRow}>
+                <label className={`radio-card${fileMode === "multiple" ? " selected" : ""}`}>
                   <input
                     type="radio"
+                    name="fileMode"
                     checked={fileMode === "multiple"}
                     onChange={() => changeFileMode("multiple")}
                   />
-                  <span>
+                  <div>
                     <strong>Multiple files, one participant each</strong>
-                    <br />
-                    <span style={{ color: "#6b7280", fontSize: 13 }}>
-                      Upload several files; each file is grouped under its file name.
-                    </span>
-                  </span>
+                    <span>Each file grouped under its file name.</span>
+                  </div>
                 </label>
               </div>
 
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
-                multiple={fileMode === "multiple"}
-                onChange={onFileChange}
-              />
-
-              {files.length > 0 && (
-                <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: "0.3rem" }}>
-                  {files.map((f) => (
-                    <li
-                      key={f.name}
-                      style={{ display: "flex", alignItems: "center", gap: "0.5rem", fontSize: 13, color: "#374151" }}
-                    >
-                      <strong>{f.name}</strong>
-                      <span style={{ color: "#2563eb", fontWeight: 600 }}>
-                        {f.codeCount} code{f.codeCount === 1 ? "" : "s"}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(f.name)}
-                        style={{ border: "none", background: "none", color: "#b91c1c", cursor: "pointer", fontSize: 12 }}
-                      >
-                        remove
-                      </button>
-                    </li>
-                  ))}
-                  {files.length > 1 && (
-                    <li style={{ fontSize: 13, color: "#111827", fontWeight: 600 }}>
-                      Total: {files.reduce((sum, f) => sum + f.codeCount, 0)} codes across {files.length} files
-                    </li>
-                  )}
-                </ul>
-              )}
-
-              <span style={{ fontSize: 12, color: "#6b7280" }}>
-                CSV with a <code>code</code> column works best; optional <code>quote</code>, <code>memo</code>,
-                and <code>participant</code> columns add context. Plain .txt is one code per line. Code counts
-                above are estimated from the number of rows.
-              </span>
-            </div>
+              <div
+                className={`dropzone${dragOver ? " dragover" : ""}`}
+                onDragOver={(e) => {
+                  e.preventDefault();
+                  setDragOver(true);
+                }}
+                onDragLeave={() => setDragOver(false)}
+                onDrop={async (e) => {
+                  e.preventDefault();
+                  setDragOver(false);
+                  await loadFiles(Array.from(e.dataTransfer.files));
+                }}
+              >
+                <p>Drop CSV or TXT here, or browse files</p>
+                <button type="button" className="btn" onClick={() => fileInputRef.current?.click()}>
+                  Browse files
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,text/csv,text/tab-separated-values,text/plain"
+                  multiple={fileMode === "multiple"}
+                  onChange={onFileChange}
+                  hidden
+                />
+                {files.length > 0 && (
+                  <div className="file-list">
+                    {files.map((f) => (
+                      <div key={f.name} className="file-item">
+                        <strong>{f.name}</strong>
+                        <span className="count">
+                          {f.codeCount} code{f.codeCount === 1 ? "" : "s"}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => removeFile(f.name)}
+                          className="icon-quiet"
+                          title="Remove file"
+                          aria-label={`Remove ${f.name}`}
+                        >
+                          ✕
+                        </button>
+                      </div>
+                    ))}
+                    {files.length > 1 && (
+                      <div className="file-item" style={{ fontWeight: 560 }}>
+                        Total: {files.reduce((sum, f) => sum + f.codeCount, 0)} codes across {files.length} files
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
           ) : (
             <textarea
+              className="textarea"
               value={content}
               onChange={(e) => setContent(e.target.value)}
               rows={8}
-              placeholder={"Paste CSV rows (code,quote,memo,participant) or one code per line…"}
-              style={{
-                padding: "0.65rem",
-                border: "1px solid #d1d5db",
-                borderRadius: 8,
-                fontFamily: "ui-monospace, monospace",
-                fontSize: 13
-              }}
+              placeholder="Paste CSV rows (code,quote,memo,participant) or one code per line…"
             />
           )}
 
-          <div>
-            <button type="button" onClick={useSample} style={secondaryButton}>
-              Use sample data
-            </button>
-          </div>
-        </div>
-      </FormSection>
+          <button type="button" onClick={useSample} className="btn btn-quiet">
+            Use sample data
+          </button>
+        </section>
 
-      {error && <p style={{ color: "#b91c1c", margin: 0 }}>{error}</p>}
+        {error && <p className="form-error" style={{ padding: "0 24px 16px" }}>{error}</p>}
+      </form>
 
-      <button type="submit" disabled={busy} style={primaryButton}>
-        {busy ? "Saving…" : "Save & continue"}
-      </button>
+      {!hideFooter && footer}
 
       {consent && (
         <ConsentModal
@@ -372,92 +365,14 @@ export function UploadDataForm({
           nextHref={`/workspaces/${consent.workspaceId}/board`}
         />
       )}
-    </form>
+    </>
   );
 }
 
-function FormSection({
-  title,
-  description,
-  children
-}: {
-  title: string;
-  description: string;
-  children: React.ReactNode;
-}) {
+export function UploadDataFormFooter({ formId = "upload-data-form", busy }: { formId?: string; busy?: boolean }) {
   return (
-    <section style={sectionCard}>
-      <div style={sectionHeader}>
-        <span style={{ display: "grid", gap: "0.15rem", textAlign: "left" }}>
-          <strong style={{ color: "var(--af-text)" }}>{title}</strong>
-          <span style={{ color: "var(--af-muted)", fontSize: 12 }}>{description}</span>
-        </span>
-      </div>
-      <div style={sectionBody}>{children}</div>
-    </section>
+    <button type="submit" form={formId} disabled={busy} className="btn btn-primary">
+      {busy ? "Saving…" : "Save & continue"}
+    </button>
   );
 }
-
-const sectionCard: React.CSSProperties = {
-  border: "1px solid var(--af-border)",
-  borderRadius: 16,
-  background: "var(--af-card-solid)",
-  overflow: "hidden",
-  boxShadow: "var(--af-shadow-soft)"
-};
-
-const sectionHeader: React.CSSProperties = {
-  width: "100%",
-  display: "flex",
-  alignItems: "center",
-  justifyContent: "space-between",
-  gap: "1rem",
-  border: "none",
-  background: "linear-gradient(90deg, #f8fbff, #ffffff)",
-  padding: "0.85rem 1rem"
-};
-
-const sectionBody: React.CSSProperties = {
-  display: "grid",
-  gap: "0.75rem",
-  padding: "1rem",
-  borderTop: "1px solid var(--af-border)"
-};
-
-const inputStyle: React.CSSProperties = {
-  padding: "0.5rem 0.65rem",
-  border: "1px solid var(--af-border)",
-  borderRadius: 8,
-  fontSize: 14
-};
-
-const fileModeRow: React.CSSProperties = {
-  display: "flex",
-  gap: "0.6rem",
-  alignItems: "flex-start",
-  border: "1px solid var(--af-border)",
-  borderRadius: 10,
-  padding: "0.6rem 0.7rem",
-  background: "#fbfdff"
-};
-
-const primaryButton: React.CSSProperties = {
-  padding: "0.55rem 0.9rem",
-  border: "1px solid var(--af-blue)",
-  background: "var(--af-gradient)",
-  color: "#fff",
-  borderRadius: 8,
-  fontSize: 14,
-  cursor: "pointer",
-  justifySelf: "start"
-};
-
-const secondaryButton: React.CSSProperties = {
-  padding: "0.5rem 0.85rem",
-  border: "1px solid var(--af-border)",
-  background: "#fff",
-  color: "var(--af-text)",
-  borderRadius: 8,
-  fontSize: 14,
-  cursor: "pointer"
-};

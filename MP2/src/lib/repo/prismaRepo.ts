@@ -305,6 +305,24 @@ export const prismaRepo = {
     };
   },
 
+  async createCodes(inputs: Omit<CodeRecord, "id" | "createdAt">[]): Promise<void> {
+    if (inputs.length === 0) return;
+
+    await prisma.code.createMany({
+      data: inputs.map((input) => ({
+        workspaceId: input.workspaceId,
+        uploadId: input.uploadId,
+        participantId: input.participantId,
+        code: input.code,
+        quote: input.quote,
+        memo: input.memo,
+        sourceRef: input.sourceRef,
+        piiMasked: input.piiMasked,
+        state: input.state
+      }))
+    });
+  },
+
   async listCodes(workspaceId: string, includeDeleted = false): Promise<CodeRecord[]> {
     const rows = await prisma.code.findMany({
       where: {

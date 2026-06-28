@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AffinityFlow · Data input · Variant B — Two-pane layout</title>
+  <style>
+    :root {
+      --color-canvas: #F7F6F2;
+      --color-surface: #FEFDFB;
+      --color-surface-subtle: #F0EFEA;
+      --color-ink: #171714;
+      --color-ink-muted: #66645D;
+      --color-ink-faint: #8D8A81;
+      --color-border: #DEDCD4;
+      --color-border-strong: #C6C3B9;
+      --color-accent: #5B4AE8;
+      --color-accent-soft: #EEEBFF;
+      --color-danger: #B33A32;
+      --sidebar-w: 248px;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--color-ink);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--color-canvas); }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--color-surface-subtle); border-right: 1px solid var(--color-border);
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar h2 { margin: 0; font-size: 14px; font-weight: 620; }
+    .new-btn {
+      display: block; text-align: center; padding: 8px 12px;
+      border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-surface); font-size: 13px; text-decoration: none; color: inherit;
+    }
+    .empty-hint { padding: 8px 10px; font-size: 13px; color: var(--color-ink-faint); }
+    .account { margin-top: auto; font-size: 12px; color: var(--color-ink-muted); padding: 8px; }
+
+    .workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .toolbar {
+      height: 56px; display: flex; align-items: center; gap: 12px;
+      padding: 0 24px; border-bottom: 1px solid var(--color-border); background: var(--color-surface);
+    }
+    .breadcrumb { font-size: 13px; color: var(--color-ink-muted); }
+    .breadcrumb strong { color: var(--color-ink); font-weight: 560; }
+
+    .page-grid {
+      flex: 1; display: grid; grid-template-columns: minmax(280px, 340px) 1fr;
+      gap: 0; min-height: 0; padding-bottom: 72px;
+    }
+    .pane-left {
+      border-right: 1px solid var(--color-border);
+      background: var(--color-surface-subtle);
+      padding: 24px; display: grid; gap: 20px; align-content: start;
+      overflow-y: auto;
+    }
+    .pane-left h1 {
+      margin: 0; font-size: 22px; line-height: 28px; font-weight: 650; letter-spacing: -0.015em;
+    }
+    .pane-left .intro { margin: 0; font-size: 13px; line-height: 18px; color: var(--color-ink-muted); }
+
+    .pane-right {
+      padding: 24px 32px; display: grid; gap: 16px; align-content: start;
+      overflow-y: auto;
+    }
+    .pane-right h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 620; }
+
+    .field { display: grid; gap: 8px; }
+    .label { font-size: 12px; font-weight: 560; }
+    .input {
+      height: 36px; padding: 8px 12px; border: 1px solid var(--color-border);
+      border-radius: 6px; background: var(--color-surface); font-size: 14px;
+    }
+    .divider { height: 1px; background: var(--color-border); margin: 4px 0; }
+
+    .rq-row { display: flex; gap: 8px; align-items: center; }
+    .rq-num { font-size: 11px; color: var(--color-ink-faint); width: 24px; }
+    .icon-quiet {
+      width: 32px; height: 32px; border: none; border-radius: 6px;
+      background: transparent; color: var(--color-ink-faint); cursor: pointer;
+    }
+    .icon-quiet:hover { background: #FBE8E5; color: var(--color-danger); }
+
+    .segment { display: flex; width: fit-content; margin-bottom: 4px; }
+    .seg-btn {
+      padding: 6px 12px; border: 1px solid var(--color-border); background: var(--color-surface);
+      font-size: 13px; cursor: pointer; color: var(--color-ink-muted);
+    }
+    .seg-btn:first-child { border-radius: 6px 0 0 6px; }
+    .seg-btn:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+    .seg-btn.active { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-ink); font-weight: 560; }
+
+    .dropzone {
+      min-height: 280px; border: 1px dashed var(--color-border-strong); border-radius: 8px;
+      background: var(--color-surface); display: grid; place-content: center; gap: 12px;
+      text-align: center; padding: 32px;
+    }
+    .dropzone p { margin: 0; font-size: 14px; color: var(--color-ink-muted); max-width: 320px; }
+    .dropzone .formats { font-size: 12px; color: var(--color-ink-faint); }
+
+    .radio-inline { display: flex; gap: 8px; flex-wrap: wrap; }
+    .chip-radio {
+      padding: 6px 10px; border: 1px solid var(--color-border); border-radius: 6px;
+      font-size: 12px; background: var(--color-surface); cursor: pointer;
+    }
+    .chip-radio.selected { background: var(--color-accent-soft); border-color: var(--color-accent); font-weight: 560; }
+
+    .file-item {
+      display: flex; align-items: center; gap: 10px; padding: 10px 12px;
+      border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-canvas);
+      font-size: 13px;
+    }
+    .file-item .meta { margin-left: auto; color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
+
+    .btn {
+      height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--color-border);
+      background: var(--color-surface); font-size: 13px; cursor: pointer;
+    }
+    .btn-quiet { border-color: transparent; background: transparent; color: var(--color-ink-muted); }
+    .btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+
+    .sticky-footer {
+      position: fixed; left: var(--sidebar-w); right: 0; bottom: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 24px; border-top: 1px solid var(--color-border);
+      background: rgba(254, 253, 251, .96);
+    }
+    .footer-meta { font-size: 12px; color: var(--color-ink-faint); }
+    .footer-actions { display: flex; gap: 8px; }
+    .variant-tag {
+      position: fixed; top: 12px; right: 12px; z-index: 99;
+      background: var(--color-ink); color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="variant-tag">Variant B · Two-pane · Data emphasis right</div>
+  <div class="app">
+    <aside class="sidebar">
+      <h2>Projects</h2>
+      <a href="#" class="new-btn">+ New project</a>
+      <p class="empty-hint">No projects yet.</p>
+      <div class="account">Account · ZN</div>
+    </aside>
+
+    <div class="workspace">
+      <header class="toolbar">
+        <span class="breadcrumb"><strong>New project</strong> · Upload research data</span>
+      </header>
+
+      <div class="page-grid">
+        <aside class="pane-left">
+          <div>
+            <h1>Project setup</h1>
+            <p class="intro">Name your project and add research questions before uploading codes.</p>
+          </div>
+          <label class="field">
+            <span class="label">Project name</span>
+            <input class="input" type="text" placeholder="Kitchen research Q2" />
+          </label>
+          <div class="divider"></div>
+          <div>
+            <span class="label">Research questions</span>
+            <div class="rq-row" style="margin-top:8px">
+              <span class="rq-num">RQ1</span>
+              <input class="input" type="text" style="flex:1" placeholder="What makes meal prep frustrating?" />
+              <button type="button" class="icon-quiet" title="Remove">✕</button>
+            </div>
+            <button type="button" class="btn btn-quiet" style="margin-top:8px">+ Add research question</button>
+          </div>
+        </aside>
+
+        <main class="pane-right">
+          <h2>Upload codes</h2>
+          <div class="segment">
+            <button type="button" class="seg-btn active">Upload file</button>
+            <button type="button" class="seg-btn">Paste text</button>
+          </div>
+          <div>
+            <span class="label">File organization</span>
+            <div class="radio-inline" style="margin-top:8px">
+              <span class="chip-radio selected">One file, all participants</span>
+              <span class="chip-radio">One file per participant</span>
+            </div>
+          </div>
+          <div class="dropzone">
+            <p>Drop CSV or TXT files here</p>
+            <button type="button" class="btn">Browse files</button>
+            <span class="formats">Accepts .csv, .tsv, .txt</span>
+          </div>
+          <div class="file-item">
+            <strong>kitchen_codes.csv</strong>
+            <span class="meta">62 codes</span>
+            <button type="button" class="icon-quiet" title="Remove file">✕</button>
+          </div>
+          <button type="button" class="btn btn-quiet">Use sample data</button>
+        </main>
+      </div>
+
+      <footer class="sticky-footer">
+        <span class="footer-meta">Privacy review follows save</span>
+        <div class="footer-actions">
+          <button type="button" class="btn btn-quiet">Cancel</button>
+          <button type="button" class="btn btn-primary">Save &amp; continue</button>
+        </div>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AffinityFlow · Data input · Variant C — Data-first minimal</title>
+  <style>
+    :root {
+      --color-canvas: #F7F6F2;
+      --color-surface: #FEFDFB;
+      --color-surface-subtle: #F0EFEA;
+      --color-ink: #171714;
+      --color-ink-muted: #66645D;
+      --color-ink-faint: #8D8A81;
+      --color-border: #DEDCD4;
+      --color-border-strong: #C6C3B9;
+      --color-accent: #5B4AE8;
+      --color-accent-soft: #EEEBFF;
+      --color-danger: #B33A32;
+      --sidebar-w: 248px;
+      --content-max: 720px;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--color-ink);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--color-canvas); }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--color-surface-subtle); border-right: 1px solid var(--color-border);
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar h2 { margin: 0; font-size: 14px; font-weight: 620; }
+    .new-btn {
+      display: block; text-align: center; padding: 8px 12px;
+      border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-surface); font-size: 13px; text-decoration: none; color: inherit;
+    }
+    .empty-hint { padding: 8px 10px; font-size: 13px; color: var(--color-ink-faint); }
+    .account { margin-top: auto; font-size: 12px; color: var(--color-ink-muted); padding: 8px; }
+
+    .workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .page {
+      flex: 1; padding: 40px 32px 88px;
+      max-width: calc(var(--content-max) + 64px);
+    }
+    .page-top {
+      display: flex; align-items: flex-end; gap: 16px; margin-bottom: 24px; flex-wrap: wrap;
+    }
+    .page-top h1 {
+      margin: 0; font-size: 28px; line-height: 34px; font-weight: 650; letter-spacing: -0.015em;
+    }
+    .inline-project {
+      flex: 1; min-width: 220px; display: flex; align-items: center; gap: 8px;
+    }
+    .inline-project .label { font-size: 12px; font-weight: 560; white-space: nowrap; }
+    .input {
+      flex: 1; height: 36px; padding: 8px 12px; border: 1px solid var(--color-border);
+      border-radius: 6px; background: var(--color-surface); font-size: 14px;
+    }
+
+    .data-panel {
+      background: var(--color-surface); border: 1px solid var(--color-border);
+      border-radius: 8px; padding: 20px 24px; display: grid; gap: 16px;
+    }
+    .panel-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+    .panel-head h2 { margin: 0; font-size: 18px; font-weight: 620; }
+    .segment { display: flex; }
+    .seg-btn {
+      padding: 6px 12px; border: 1px solid var(--color-border); background: var(--color-surface);
+      font-size: 13px; cursor: pointer; color: var(--color-ink-muted);
+    }
+    .seg-btn:first-child { border-radius: 6px 0 0 6px; }
+    .seg-btn:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+    .seg-btn.active { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-ink); font-weight: 560; }
+
+    .dropzone {
+      border: 1px dashed var(--color-border-strong); border-radius: 8px;
+      padding: 40px 24px; text-align: center; background: var(--color-canvas);
+    }
+    .dropzone .icon { font-size: 28px; margin-bottom: 8px; opacity: .45; }
+    .dropzone p { margin: 0 0 12px; font-size: 14px; color: var(--color-ink-muted); }
+    .dropzone .hint { font-size: 12px; color: var(--color-ink-faint); margin-top: 8px; }
+
+    .options-row {
+      display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+      font-size: 12px; color: var(--color-ink-muted);
+    }
+    .chip-radio {
+      padding: 5px 10px; border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-surface); cursor: pointer;
+    }
+    .chip-radio.selected { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-ink); font-weight: 560; }
+
+    .file-item {
+      display: flex; align-items: center; gap: 8px; padding: 10px 12px;
+      border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px;
+      background: var(--color-surface-subtle);
+    }
+    .file-item .count { margin-left: auto; font-variant-numeric: tabular-nums; color: var(--color-ink-muted); }
+
+    details.optional {
+      border: 1px solid var(--color-border); border-radius: 8px;
+      background: var(--color-surface); overflow: hidden;
+    }
+    details.optional summary {
+      padding: 12px 16px; cursor: pointer; font-size: 13px; font-weight: 560;
+      color: var(--color-ink-muted); list-style: none;
+    }
+    details.optional summary::-webkit-details-marker { display: none; }
+    details.optional .content { padding: 0 16px 16px; display: grid; gap: 8px; }
+    .rq-row { display: flex; gap: 8px; align-items: center; }
+    .icon-quiet {
+      width: 32px; height: 32px; border: none; border-radius: 6px;
+      background: transparent; color: var(--color-ink-faint); cursor: pointer;
+    }
+    .icon-quiet:hover { background: #FBE8E5; color: var(--color-danger); }
+
+    .btn {
+      height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--color-border);
+      background: var(--color-surface); font-size: 13px; cursor: pointer;
+    }
+    .btn-quiet { border-color: transparent; background: transparent; color: var(--color-ink-muted); }
+    .btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+
+    .sticky-footer {
+      position: fixed; left: var(--sidebar-w); right: 0; bottom: 0;
+      display: flex; justify-content: space-between; align-items: center;
+      padding: 12px 32px; border-top: 1px solid var(--color-border);
+      background: rgba(254, 253, 251, .96);
+    }
+    .status { font-size: 13px; color: var(--color-ink-muted); }
+    .status strong { color: var(--color-ink); font-variant-numeric: tabular-nums; }
+    .variant-tag {
+      position: fixed; top: 12px; right: 12px; z-index: 99;
+      background: var(--color-ink); color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="variant-tag">Variant C · Data-first · Optional RQs collapsed</div>
+  <div class="app">
+    <aside class="sidebar">
+      <h2>Projects</h2>
+      <a href="#" class="new-btn">+ New project</a>
+      <p class="empty-hint">No projects yet.</p>
+      <div class="account">Account · ZN</div>
+    </aside>
+
+    <div class="workspace">
+      <main class="page">
+        <div class="page-top">
+          <h1>Upload research data</h1>
+          <div class="inline-project">
+            <span class="label">Project</span>
+            <input class="input" type="text" placeholder="Untitled project" />
+          </div>
+        </div>
+
+        <section class="data-panel">
+          <div class="panel-head">
+            <h2>Add codes</h2>
+            <div class="segment">
+              <button type="button" class="seg-btn active">Upload file</button>
+              <button type="button" class="seg-btn">Paste text</button>
+            </div>
+          </div>
+
+          <div class="dropzone">
+            <div class="icon">↑</div>
+            <p>Drop CSV or TXT here, or browse files</p>
+            <button type="button" class="btn">Browse files</button>
+            <p class="hint">CSV with <code>code</code>, optional <code>quote</code>, <code>memo</code>, <code>participant</code></p>
+          </div>
+
+          <div class="options-row">
+            <span>Organization:</span>
+            <span class="chip-radio selected">One file, all participants</span>
+            <span class="chip-radio">One file per participant</span>
+            <button type="button" class="btn btn-quiet" style="margin-left:auto">Use sample data</button>
+          </div>
+
+          <div class="file-item">
+            <strong>kitchen_codes.csv</strong>
+            <span class="count">62 codes</span>
+            <button type="button" class="icon-quiet" title="Remove file">✕</button>
+          </div>
+        </section>
+
+        <details class="optional" style="margin-top:16px">
+          <summary>Research questions (optional)</summary>
+          <div class="content">
+            <div class="rq-row">
+              <input class="input" type="text" style="flex:1" placeholder="e.g. What makes meal prep frustrating?" />
+              <button type="button" class="icon-quiet" title="Remove">✕</button>
+            </div>
+            <button type="button" class="btn btn-quiet">+ Add research question</button>
+          </div>
+        </details>
+      </main>
+
+      <footer class="sticky-footer">
+        <span class="status"><strong>62</strong> codes ready · privacy review next</span>
+        <button type="button" class="btn btn-primary">Save &amp; continue</button>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AffinityFlow · Data input · Variant A — Unified flat form</title>
+  <style>
+    :root {
+      --color-canvas: #F7F6F2;
+      --color-surface: #FEFDFB;
+      --color-surface-subtle: #F0EFEA;
+      --color-ink: #171714;
+      --color-ink-muted: #66645D;
+      --color-ink-faint: #8D8A81;
+      --color-border: #DEDCD4;
+      --color-border-strong: #C6C3B9;
+      --color-accent: #5B4AE8;
+      --color-accent-soft: #EEEBFF;
+      --color-danger: #B33A32;
+      --sidebar-w: 248px;
+      --content-max: 720px;
+      font-family: Inter, system-ui, sans-serif;
+      color: var(--color-ink);
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--color-canvas); }
+    .app { display: flex; min-height: 100vh; }
+    .sidebar {
+      width: var(--sidebar-w); flex-shrink: 0;
+      background: var(--color-surface-subtle); border-right: 1px solid var(--color-border);
+      padding: 12px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .sidebar h2 { margin: 0; font-size: 14px; font-weight: 620; }
+    .new-btn {
+      display: block; text-align: center; padding: 8px 12px;
+      border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-surface); font-size: 13px; text-decoration: none; color: inherit;
+    }
+    .empty-hint { padding: 8px 10px; font-size: 13px; color: var(--color-ink-faint); }
+    .account { margin-top: auto; font-size: 12px; color: var(--color-ink-muted); padding: 8px; }
+
+    .workspace { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+    .page-header {
+      padding: 32px 32px 0; max-width: calc(var(--content-max) + 64px);
+    }
+    .page-header h1 {
+      margin: 0 0 8px; font-size: 28px; line-height: 34px; font-weight: 650;
+      letter-spacing: -0.015em;
+    }
+    .page-header p {
+      margin: 0; max-width: 42rem; font-size: 14px; line-height: 21px; color: var(--color-ink-muted);
+    }
+
+    .page-body {
+      flex: 1; padding: 24px 32px 88px;
+      max-width: calc(var(--content-max) + 64px);
+    }
+    .form-surface {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .section {
+      padding: 20px 24px;
+      display: grid; gap: 16px;
+    }
+    .section + .section { border-top: 1px solid var(--color-border); }
+    .section h2 { margin: 0; font-size: 18px; line-height: 24px; font-weight: 620; }
+    .section .help { margin: 0; font-size: 13px; line-height: 18px; color: var(--color-ink-muted); }
+
+    .field { display: grid; gap: 8px; }
+    .label { font-size: 12px; line-height: 16px; font-weight: 560; }
+    .input, .textarea {
+      height: 36px; padding: 8px 12px; border: 1px solid var(--color-border);
+      border-radius: 6px; background: var(--color-surface); font-size: 14px; font-family: inherit;
+    }
+    .textarea { height: auto; min-height: 140px; resize: vertical; font-family: ui-monospace, monospace; font-size: 13px; }
+
+    .rq-row { display: flex; gap: 8px; align-items: center; }
+    .rq-num { width: 28px; font-size: 12px; color: var(--color-ink-faint); }
+    .icon-quiet {
+      width: 32px; height: 32px; border: 1px solid transparent; border-radius: 6px;
+      background: transparent; color: var(--color-ink-faint); cursor: pointer; font-size: 14px;
+    }
+    .icon-quiet:hover { border-color: var(--color-border); color: var(--color-danger); background: #FBE8E5; }
+
+    .method-tabs { display: flex; gap: 0; width: fit-content; }
+    .method-tab {
+      padding: 6px 12px; border: 1px solid var(--color-border); background: var(--color-surface);
+      font-size: 13px; cursor: pointer; color: var(--color-ink-muted);
+    }
+    .method-tab:first-child { border-radius: 6px 0 0 6px; }
+    .method-tab:last-child { border-radius: 0 6px 6px 0; border-left: none; }
+    .method-tab.active { background: var(--color-accent-soft); border-color: var(--color-accent); color: var(--color-ink); font-weight: 560; }
+
+    .radio-cards { display: grid; gap: 8px; }
+    .radio-card {
+      display: flex; gap: 10px; align-items: flex-start;
+      padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 6px;
+      background: var(--color-surface); cursor: pointer;
+    }
+    .radio-card.selected { background: var(--color-accent-soft); border-color: var(--color-accent); }
+    .radio-card strong { display: block; font-size: 13px; font-weight: 560; margin-bottom: 2px; }
+    .radio-card span { font-size: 12px; color: var(--color-ink-muted); line-height: 16px; }
+
+    .dropzone {
+      border: 1px dashed var(--color-border-strong); border-radius: 8px;
+      padding: 28px 20px; text-align: center; background: var(--color-canvas);
+    }
+    .dropzone p { margin: 0 0 12px; font-size: 14px; color: var(--color-ink-muted); }
+    .file-list { display: grid; gap: 8px; margin-top: 12px; text-align: left; }
+    .file-item {
+      display: flex; align-items: center; gap: 8px; padding: 8px 10px;
+      border: 1px solid var(--color-border); border-radius: 6px; font-size: 13px;
+    }
+    .file-item .count { margin-left: auto; color: var(--color-ink-muted); font-variant-numeric: tabular-nums; }
+
+    .btn {
+      height: 36px; padding: 0 12px; border-radius: 6px; border: 1px solid var(--color-border);
+      background: var(--color-surface); font-size: 13px; cursor: pointer; color: var(--color-ink);
+    }
+    .btn-quiet { border-color: transparent; background: transparent; color: var(--color-ink-muted); }
+    .btn-primary { background: var(--color-accent); border-color: var(--color-accent); color: #fff; }
+
+    .sticky-footer {
+      position: fixed; left: var(--sidebar-w); right: 0; bottom: 0;
+      display: flex; justify-content: flex-end; align-items: center; gap: 12px;
+      padding: 12px 32px; border-top: 1px solid var(--color-border);
+      background: rgba(254, 253, 251, .96);
+    }
+    .variant-tag {
+      position: fixed; top: 12px; right: 12px; z-index: 99;
+      background: var(--color-ink); color: #fff; font-size: 11px; padding: 6px 10px; border-radius: 6px;
+    }
+  </style>
+</head>
+<body>
+  <div class="variant-tag">Variant A · Unified flat form · Sticky footer</div>
+  <div class="app">
+    <aside class="sidebar">
+      <h2>Projects</h2>
+      <a href="#" class="new-btn">+ New project</a>
+      <p class="empty-hint">No projects yet.</p>
+      <div class="account">Account · ZN</div>
+    </aside>
+
+    <div class="workspace">
+      <header class="page-header">
+        <h1>Upload research data</h1>
+        <p>Upload a CSV or paste coded text. You'll review privacy options before opening the board.</p>
+      </header>
+
+      <main class="page-body">
+        <form class="form-surface">
+          <section class="section">
+            <div>
+              <h2>Project details</h2>
+              <p class="help">Optional. Defaults to Untitled project.</p>
+            </div>
+            <label class="field">
+              <span class="label">Project name</span>
+              <input class="input" type="text" placeholder="Kitchen research Q2" />
+            </label>
+          </section>
+
+          <section class="section">
+            <div>
+              <h2>Research questions</h2>
+              <p class="help">Optional. Used when organizing the board by research questions.</p>
+            </div>
+            <div class="rq-row">
+              <span class="rq-num">RQ1</span>
+              <input class="input" type="text" style="flex:1" placeholder="What makes meal prep frustrating?" />
+              <button type="button" class="icon-quiet" title="Remove research question">✕</button>
+            </div>
+            <button type="button" class="btn btn-quiet">+ Add research question</button>
+          </section>
+
+          <section class="section">
+            <div>
+              <h2>Data</h2>
+              <p class="help">Required. CSV with a <code>code</code> column works best.</p>
+            </div>
+            <div class="method-tabs">
+              <button type="button" class="method-tab active">Upload file</button>
+              <button type="button" class="method-tab">Paste text</button>
+            </div>
+            <div class="radio-cards">
+              <label class="radio-card selected">
+                <input type="radio" name="mode" checked />
+                <div>
+                  <strong>One file, all participants</strong>
+                  <span>Single CSV/TSV with a participant column.</span>
+                </div>
+              </label>
+              <label class="radio-card">
+                <input type="radio" name="mode" />
+                <div>
+                  <strong>Multiple files, one participant each</strong>
+                  <span>Each file grouped under its file name.</span>
+                </div>
+              </label>
+            </div>
+            <div class="dropzone">
+              <p>Drop CSV or TXT here, or browse files</p>
+              <button type="button" class="btn">Browse files</button>
+              <div class="file-list">
+                <div class="file-item">
+                  <strong>kitchen_codes.csv</strong>
+                  <span class="count">62 codes</span>
+                  <button type="button" class="icon-quiet" title="Remove file">✕</button>
+                </div>
+              </div>
+            </div>
+            <button type="button" class="btn btn-quiet">Use sample data</button>
+          </section>
+        </form>
+      </main>
+
+      <footer class="sticky-footer">
+        <button type="button" class="btn btn-primary">Save &amp; continue</button>
+      </footer>
+    </div>
+  </div>
+</body>
+</html>
