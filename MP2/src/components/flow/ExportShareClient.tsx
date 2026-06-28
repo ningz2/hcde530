@@ -41,16 +41,21 @@ export function ExportShareClient({ workspaceId }: { workspaceId: string }) {
   }
 
   async function copyArtifact() {
-    if (!exportResult?.artifactPreview) return;
+    if (!exportResult?.artifactPreview || exportResult.artifactMimeType === "application/pdf") return;
     await navigator.clipboard.writeText(exportResult.artifactPreview);
     setNotice("Copied export content to clipboard.");
   }
 
   function downloadArtifact() {
     if (!exportResult?.artifactPreview) return;
-    const blob = new Blob([exportResult.artifactPreview], {
-      type: exportResult.artifactMimeType ?? "text/plain;charset=utf-8"
-    });
+    const blob =
+      exportResult.artifactMimeType === "application/pdf"
+        ? new Blob([Uint8Array.from(atob(exportResult.artifactPreview), (char) => char.charCodeAt(0))], {
+            type: "application/pdf"
+          })
+        : new Blob([exportResult.artifactPreview], {
+            type: exportResult.artifactMimeType ?? "text/plain;charset=utf-8"
+          });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
@@ -127,16 +132,20 @@ export function ExportShareClient({ workspaceId }: { workspaceId: string }) {
                   <button type="button" onClick={downloadArtifact} className="btn btn-quiet">
                     Download
                   </button>
-                  <button type="button" onClick={copyArtifact} className="btn btn-quiet">
-                    Copy
-                  </button>
-                  <button type="button" onClick={() => setShowPreview((open) => !open)} className="btn btn-quiet">
-                    {showPreview ? "Hide preview" : "Show preview"}
-                  </button>
+                  {exportResult.artifactMimeType !== "application/pdf" && (
+                    <button type="button" onClick={copyArtifact} className="btn btn-quiet">
+                      Copy
+                    </button>
+                  )}
+                  {exportResult.artifactMimeType !== "application/pdf" && (
+                    <button type="button" onClick={() => setShowPreview((open) => !open)} className="btn btn-quiet">
+                      {showPreview ? "Hide preview" : "Show preview"}
+                    </button>
+                  )}
                 </div>
                 <p style={{ margin: "8px 0 0", color: "var(--color-ink-muted)", fontSize: 12 }}>
                   {exportResult.format === "PDF"
-                    ? "Downloads a printable HTML file. Open it and use your browser's Print / Save as PDF."
+                    ? "Downloads a PDF file of your grouped board."
                     : exportResult.format === "FIGJAM"
                       ? "Downloads a FigJam-friendly CSV: each row is one grouped sticky note."
                       : "CSV can be downloaded or copied directly."}
