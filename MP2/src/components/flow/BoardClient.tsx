@@ -3,7 +3,7 @@
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPatch, apiPost, apiSend, isError } from "@/lib/client/api";
-import { initialsFromLabel, tokensForHex } from "@/lib/color/palette";
+import { tokensForHex } from "@/lib/color/palette";
 import type { BoardNode, BoardView } from "@/domain/services/boardView";
 import type { HierarchyMode } from "@/lib/repo/store";
 
@@ -327,6 +327,9 @@ function NodeBox({
         <div className="board-notes">
           {node.assignments.map((a) => {
             const colors = tokensForHex(a.participantHex);
+            const sourceHint =
+              a.sourceRef?.trim() ||
+              (a.participantLabel && a.participantLabel !== "Unassigned" ? a.participantLabel : undefined);
             return (
               <div
                 key={a.codeId}
@@ -342,10 +345,11 @@ function NodeBox({
                   }}
                 >
                   <span className="sticky-note-code">{a.code}</span>
-                  <span className="sticky-note-participant">
-                    <span className="participant-initials">{initialsFromLabel(a.participantLabel)}</span>
-                    {a.participantLabel}
-                  </span>
+                  {sourceHint ? (
+                    <span className="sticky-note-source" title={sourceHint}>
+                      {sourceHint}
+                    </span>
+                  ) : null}
                 </div>
                 <div
                   className="sticky-note-hover-card"
@@ -358,7 +362,7 @@ function NodeBox({
                   <InfoRow label="Why here" value={a.rationale} />
                   <InfoRow label="Quote" value={a.quote} empty="No associated quote" />
                   <InfoRow label="Memo" value={a.memo} empty="No memo" />
-                  <InfoRow label="Source file" value={a.sourceRef} empty="Pasted text / unknown source" />
+                  <InfoRow label="Source file" value={a.sourceRef ?? sourceHint} empty="Pasted text / unknown source" subdued />
                 </div>
               </div>
             );
@@ -381,11 +385,21 @@ function NodeBox({
   );
 }
 
-function InfoRow({ label, value, empty }: { label: string; value?: string; empty?: string }) {
+function InfoRow({
+  label,
+  value,
+  empty,
+  subdued
+}: {
+  label: string;
+  value?: string;
+  empty?: string;
+  subdued?: boolean;
+}) {
   const text = value || empty || "Not provided";
   const isEmpty = !value;
   return (
-    <div className="hover-card-row">
+    <div className={`hover-card-row${subdued ? " subdued" : ""}`}>
       <span className="hover-card-label">{label}</span>
       <p className={`hover-card-value${isEmpty ? " empty" : ""}`}>{text}</p>
     </div>

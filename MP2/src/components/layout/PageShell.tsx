@@ -10,12 +10,14 @@ type PageShellProps = {
 export function PageShell({ title, description, children, footer }: PageShellProps) {
   return (
     <div className="setup-workspace">
-      <header className="setup-header">
-        <h1>{title}</h1>
-        <p>{description}</p>
-      </header>
-      <main className="setup-body">{children}</main>
-      {footer ? <footer className="setup-footer">{footer}</footer> : null}
+      <div className="setup-column">
+        <header className="setup-header">
+          <h1>{title}</h1>
+          <p>{description}</p>
+        </header>
+        <main className="setup-body">{children}</main>
+        {footer ? <footer className="setup-footer">{footer}</footer> : null}
+      </div>
     </div>
   );
 }
