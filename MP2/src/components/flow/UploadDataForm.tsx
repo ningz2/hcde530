@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { apiPost, isError } from "@/lib/client/api";
 import { ConsentModal } from "@/components/flow/ConsentModal";
+import { PageShell } from "@/components/layout/PageShell";
 
 type CreatedWorkspace = { workspace: { id: string } };
 type IngestResponse = { workspaceId: string; ingestion: { codeCount: number } };
@@ -29,13 +30,18 @@ export function UploadDataForm({
   workspaceId,
   formId = "upload-data-form",
   hideFooter = false,
-  onBusyChange
+  onBusyChange,
+  shell
 }: {
   mode: "new" | "existing";
   workspaceId?: string;
   formId?: string;
   hideFooter?: boolean;
   onBusyChange?: (busy: boolean) => void;
+  shell?: {
+    title: string;
+    description: string;
+  };
 }) {
   const router = useRouter();
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -175,7 +181,7 @@ export function UploadDataForm({
     </button>
   );
 
-  return (
+  const body = (
     <>
       <form id={formId} onSubmit={onSubmit} className="form-surface">
         {mode === "new" && (
@@ -356,7 +362,7 @@ export function UploadDataForm({
         {error && <p className="form-error" style={{ padding: "0 24px 16px" }}>{error}</p>}
       </form>
 
-      {!hideFooter && footer}
+      {!hideFooter && !shell && footer}
 
       {consent && (
         <ConsentModal
@@ -367,12 +373,14 @@ export function UploadDataForm({
       )}
     </>
   );
-}
 
-export function UploadDataFormFooter({ formId = "upload-data-form", busy }: { formId?: string; busy?: boolean }) {
-  return (
-    <button type="submit" form={formId} disabled={busy} className="btn btn-primary">
-      {busy ? "Saving…" : "Save & continue"}
-    </button>
-  );
+  if (shell) {
+    return (
+      <PageShell title={shell.title} description={shell.description} footer={footer}>
+        {body}
+      </PageShell>
+    );
+  }
+
+  return body;
 }

@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { UploadDataSetup } from "@/components/flow/UploadDataSetup";
+import { UploadDataForm } from "@/components/flow/UploadDataForm";
 import { repo } from "@/lib/repo/store";
 
 export const dynamic = "force-dynamic";
@@ -17,12 +17,16 @@ export default async function IngestPage({ params }: IngestPageProps) {
   }
 
   return (
-    <UploadDataSetup
-      title="Add more data"
-      description="Upload additional codes to this project. You'll review privacy options before returning to the board."
+    <UploadDataForm
       mode="existing"
       workspaceId={workspaceId}
       formId={FORM_ID}
+      hideFooter
+      shell={{
+        title: "Add more data",
+        description:
+          "Upload additional codes to this project. You'll review privacy options before returning to the board."
+      }}
     />
   );
 }

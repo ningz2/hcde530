@@ -1,4 +1,4 @@
-import { UploadDataSetup } from "@/components/flow/UploadDataSetup";
+import { UploadDataForm } from "@/components/flow/UploadDataForm";
 import { getSessionContext } from "@/lib/auth/session";
 import { redirect } from "next/navigation";
 
@@ -13,11 +13,15 @@ export default async function HomePage() {
   }
 
   return (
-    <UploadDataSetup
-      title="Upload research data"
-      description="Upload a CSV or paste coded text. You'll review privacy options before opening the board."
+    <UploadDataForm
       mode="new"
       formId={FORM_ID}
+      hideFooter
+      shell={{
+        title: "Upload research data",
+        description:
+          "Upload a CSV or paste coded text. You'll review privacy options before opening the board."
+      }}
     />
   );
 }
